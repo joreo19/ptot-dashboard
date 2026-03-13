@@ -1,5 +1,6 @@
 import pandas as pd
 import io
+import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
@@ -17,7 +18,6 @@ SHEET_NAMES = {
     2026: "2026 PTOT Tracking",
 }
 
-# Column index where month name starts (0-based)
 MONTH_COL = {
     2024: 22,
     2025: 20,
@@ -31,26 +31,30 @@ MONTHS = [
 
 
 def get_drive_service():
-    creds = service_account.Credentials.from_service_account_file(
-        "service_account.json",
-        scopes=["https://www.googleapis.com/auth/drive.readonly"],
-    )
+    # Use Streamlit secrets when deployed, fall back to local file for development
+    try:
+        creds = service_account.Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=["https://www.googleapis.com/auth/drive.readonly"],
+        )
+    except (KeyError, FileNotFoundError):
+        creds = service_account.Credentials.from_service_account_file(
+            "service_account.json",
+            scopes=["https://www.googleapis.com/auth/drive.readonly"],
+        )
     return build("drive", "v3", credentials=creds)
 
 
 def download_excel(service, file_id):
-    # Check the file's MIME type first
     meta = service.files().get(fileId=file_id, fields="mimeType").execute()
     mime = meta.get("mimeType", "")
 
     if mime == "application/vnd.google-apps.spreadsheet":
-        # Native Google Sheet — export as Excel
         request = service.files().export_media(
             fileId=file_id,
             mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
-        # Regular .xlsx file stored in Drive — download directly
         request = service.files().get_media(fileId=file_id)
 
     buf = io.BytesIO()
