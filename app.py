@@ -1,0 +1,336 @@
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime
+from data_loader import load_all_data, build_monthly_df, MONTHS
+
+# ── Page config ────────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Purge This Organize That",
+    page_icon="🌸",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# ── Brand palette — warm, feminine ────────────────────────────────────────────
+COLOR_2024 = "#D4A5A5"   # dusty rose
+COLOR_2025 = "#C4956A"   # warm terracotta
+COLOR_2026 = "#8B4F6F"   # deep mauve (current year)
+BG_DARK    = "#1C1518"   # deep plum-black
+BG_CARD    = "#251C20"   # warm dark card
+TEXT_LIGHT = "#F5EDE8"   # warm white
+TEXT_DIM   = "#9E8580"   # muted rose-grey
+ACCENT     = "#E8A598"   # soft coral
+ACCENT2    = "#C9847A"   # deeper coral
+
+# ── Global CSS ─────────────────────────────────────────────────────────────────
+st.markdown(f"""
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500&display=swap');
+
+  html, body, [class*="css"] {{
+      font-family: 'Jost', sans-serif;
+      background-color: {BG_DARK};
+      color: {TEXT_LIGHT};
+  }}
+  .block-container {{ padding: 1.5rem 1.5rem 3rem; max-width: 900px; margin: auto; }}
+
+  /* Header */
+  .dash-header {{
+      text-align: center;
+      padding: 2.2rem 0 1.8rem;
+      border-bottom: 1px solid #3A2830;
+      margin-bottom: 1.8rem;
+  }}
+  .dash-header .tagline-top {{
+      font-family: 'Jost', sans-serif;
+      font-size: .7rem;
+      font-weight: 500;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: {ACCENT};
+      margin-bottom: .6rem;
+  }}
+  .dash-header h1 {{
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.9rem, 5vw, 2.8rem);
+      color: {TEXT_LIGHT};
+      margin: 0 0 .4rem;
+      letter-spacing: .01em;
+      line-height: 1.15;
+  }}
+  .dash-header h1 em {{
+      color: {ACCENT};
+      font-style: italic;
+  }}
+  .dash-header p {{
+      color: {TEXT_DIM};
+      font-size: .82rem;
+      font-weight: 300;
+      margin: 0;
+      letter-spacing: .04em;
+  }}
+
+  /* Divider flourish */
+  .flourish {{
+      text-align: center;
+      color: {ACCENT};
+      font-size: .9rem;
+      letter-spacing: .3em;
+      margin: .6rem 0 0;
+      opacity: .5;
+  }}
+
+  /* KPI cards */
+  .kpi-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: .9rem; margin-bottom: 1.8rem; }}
+  .kpi-card {{
+      background: {BG_CARD};
+      border: 1px solid #3A2830;
+      border-radius: 14px;
+      padding: 1.2rem 1rem;
+      text-align: center;
+      transition: transform .2s, border-color .2s;
+      position: relative;
+      overflow: hidden;
+  }}
+  .kpi-card::before {{
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, {ACCENT2}, {ACCENT});
+      border-radius: 14px 14px 0 0;
+  }}
+  .kpi-card:hover {{ transform: translateY(-3px); border-color: #5A3040; }}
+  .kpi-label {{ font-size: .68rem; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: {TEXT_DIM}; margin-bottom: .4rem; }}
+  .kpi-value {{ font-family: 'Playfair Display', serif; font-size: clamp(1.4rem, 4vw, 2rem); color: {ACCENT}; line-height: 1; }}
+  .kpi-delta {{ font-size: .76rem; margin-top: .35rem; font-weight: 400; }}
+  .delta-up {{ color: #B5D5A8; }}
+  .delta-down {{ color: #E07B6A; }}
+  .delta-neutral {{ color: {TEXT_DIM}; }}
+
+  /* Section titles */
+  .section-title {{
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+      color: {TEXT_LIGHT};
+      margin: 1.8rem 0 .7rem;
+      padding-left: .1rem;
+  }}
+
+  /* Chart container */
+  .chart-wrap {{
+      background: {BG_CARD};
+      border: 1px solid #3A2830;
+      border-radius: 14px;
+      padding: 1rem .5rem .5rem;
+      margin-bottom: 1.2rem;
+  }}
+
+  /* Table */
+  .rev-table {{ width: 100%; border-collapse: collapse; font-size: .85rem; }}
+  .rev-table th {{
+      background: #2E1E24;
+      color: {TEXT_DIM};
+      font-weight: 500;
+      letter-spacing: .07em;
+      font-size: .7rem;
+      text-transform: uppercase;
+      padding: .65rem .9rem;
+      text-align: right;
+  }}
+  .rev-table th:first-child {{ text-align: left; }}
+  .rev-table td {{ padding: .55rem .9rem; border-bottom: 1px solid #2E1E24; text-align: right; color: {TEXT_LIGHT}; }}
+  .rev-table td:first-child {{ text-align: left; color: {TEXT_DIM}; font-weight: 400; }}
+  .rev-table tr:hover td {{ background: #2E1E24; }}
+  .rev-table tr.current-month td {{ color: {ACCENT}; font-weight: 600; }}
+  .rev-table .zero {{ color: #3A2830; }}
+
+  /* Footer */
+  .dash-footer {{ text-align: center; color: {TEXT_DIM}; font-size: .72rem; margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #3A2830; letter-spacing: .05em; }}
+
+  /* Streamlit overrides */
+  div[data-testid="stToolbar"] {{ display: none; }}
+  footer {{ display: none; }}
+  .stSpinner > div {{ border-top-color: {ACCENT} !important; }}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Data loading ───────────────────────────────────────────────────────────────
+@st.cache_data(ttl=300)
+def get_data():
+    raw = load_all_data()
+    return build_monthly_df(raw)
+
+with st.spinner("Loading your data…"):
+    df = get_data()
+
+now = datetime.now()
+current_month_num = now.month
+current_month_name = MONTHS[current_month_num - 1]
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+def ytd(df, year):
+    return df[(df.year == year) & (df.month_num <= current_month_num)]["total_revenue"].sum()
+
+def fmt(v):
+    return f"${v:,.0f}"
+
+def delta_html(curr, prev):
+    if prev == 0:
+        return '<span class="delta-neutral">—</span>'
+    pct = (curr - prev) / prev * 100
+    cls = "delta-up" if pct >= 0 else "delta-down"
+    arrow = "▲" if pct >= 0 else "▼"
+    return f'<span class="{cls}">{arrow} {abs(pct):.1f}% vs prior year</span>'
+
+# ── Header ─────────────────────────────────────────────────────────────────────
+st.markdown(f"""
+<div class="dash-header">
+  <div class="tagline-top">Business Performance Dashboard</div>
+  <h1>Purge This <em>Organize That</em></h1>
+  <div class="flourish">— ✦ —</div>
+  <p style="margin-top:.6rem">Year-over-Year Revenue · Updated {now.strftime("%B %d, %Y")}</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ── KPI Cards ──────────────────────────────────────────────────────────────────
+ytd_2026 = ytd(df, 2026)
+ytd_2025 = ytd(df, 2025)
+ytd_2024 = ytd(df, 2024)
+annual_2025 = df[df.year == 2025]["total_revenue"].sum()
+annual_2024 = df[df.year == 2024]["total_revenue"].sum()
+cur_month_2026 = df[(df.year == 2026) & (df.month == current_month_name)]["total_revenue"].sum()
+cur_month_2025 = df[(df.year == 2025) & (df.month == current_month_name)]["total_revenue"].sum()
+
+st.markdown(f"""
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">2026 YTD Revenue</div>
+    <div class="kpi-value">{fmt(ytd_2026)}</div>
+    <div class="kpi-delta">{delta_html(ytd_2026, ytd_2025)}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">{current_month_name} 2026</div>
+    <div class="kpi-value">{fmt(cur_month_2026)}</div>
+    <div class="kpi-delta">{delta_html(cur_month_2026, cur_month_2025)}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Full Year 2025</div>
+    <div class="kpi-value">{fmt(annual_2025)}</div>
+    <div class="kpi-delta">{delta_html(annual_2025, annual_2024)}</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Monthly Revenue Bar Chart ──────────────────────────────────────────────────
+st.markdown('<div class="section-title">Monthly Revenue — 3-Year View</div>', unsafe_allow_html=True)
+
+fig_bar = go.Figure()
+for year, color, opacity in [(2024, COLOR_2024, 0.6), (2025, COLOR_2025, 0.8), (2026, COLOR_2026, 1.0)]:
+    ydata = []
+    for m in MONTHS:
+        val = df[(df.year == year) & (df.month == m)]["total_revenue"].values
+        ydata.append(val[0] if len(val) else 0)
+    fig_bar.add_trace(go.Bar(
+        name=str(year), x=MONTHS, y=ydata,
+        marker_color=color, opacity=opacity,
+        hovertemplate="<b>%{x}</b><br>Revenue: $%{y:,.0f}<extra></extra>",
+    ))
+
+fig_bar.update_layout(
+    barmode="group",
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Jost", color=TEXT_DIM, size=11),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                font=dict(size=12, color=TEXT_LIGHT)),
+    margin=dict(l=10, r=10, t=30, b=10),
+    xaxis=dict(showgrid=False, tickfont=dict(size=10), tickangle=-30),
+    yaxis=dict(showgrid=True, gridcolor="#3A2830", tickprefix="$", tickformat=","),
+    height=300,
+)
+st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ── YTD Cumulative Line Chart ──────────────────────────────────────────────────
+st.markdown('<div class="section-title">Cumulative YTD Revenue</div>', unsafe_allow_html=True)
+
+fig_line = go.Figure()
+for year, color, width, dash in [(2024, COLOR_2024, 1.5, "dot"), (2025, COLOR_2025, 2, "dash"), (2026, COLOR_2026, 3, "solid")]:
+    cumvals, running = [], 0
+    for i, m in enumerate(MONTHS):
+        if year == 2026 and i + 1 > current_month_num:
+            break
+        val = df[(df.year == year) & (df.month == m)]["total_revenue"].values
+        running += val[0] if len(val) else 0
+        cumvals.append((m, running))
+    fig_line.add_trace(go.Scatter(
+        name=str(year),
+        x=[c[0] for c in cumvals],
+        y=[c[1] for c in cumvals],
+        mode="lines+markers",
+        line=dict(color=color, width=width, dash=dash),
+        marker=dict(size=5),
+        hovertemplate="<b>%{x}</b><br>Cumulative: $%{y:,.0f}<extra></extra>",
+    ))
+
+fig_line.update_layout(
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Jost", color=TEXT_DIM, size=11),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                font=dict(size=12, color=TEXT_LIGHT)),
+    margin=dict(l=10, r=10, t=30, b=10),
+    xaxis=dict(showgrid=False, tickfont=dict(size=10), tickangle=-30),
+    yaxis=dict(showgrid=True, gridcolor="#3A2830", tickprefix="$", tickformat=","),
+    height=280,
+)
+st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ── Monthly Revenue Table ──────────────────────────────────────────────────────
+st.markdown('<div class="section-title">Monthly Revenue Breakdown</div>', unsafe_allow_html=True)
+
+rows_html = ""
+for i, month in enumerate(MONTHS):
+    r24 = df[(df.year == 2024) & (df.month == month)]["total_revenue"].values
+    r25 = df[(df.year == 2025) & (df.month == month)]["total_revenue"].values
+    r26 = df[(df.year == 2026) & (df.month == month)]["total_revenue"].values
+    v24 = r24[0] if len(r24) else 0
+    v25 = r25[0] if len(r25) else 0
+    v26 = r26[0] if len(r26) else 0
+
+    def cell(v):
+        return '<td class="zero">—</td>' if v == 0 else f"<td>{fmt(v)}</td>"
+
+    is_current = (i + 1 == current_month_num)
+    row_class = ' class="current-month"' if is_current else ""
+    marker = " ✦" if is_current else ""
+    rows_html += f"<tr{row_class}><td>{month}{marker}</td>{cell(v24)}{cell(v25)}{cell(v26)}</tr>"
+
+st.markdown(f"""
+<div class="chart-wrap">
+<table class="rev-table">
+  <thead><tr>
+    <th>Month</th><th>2024</th><th>2025</th><th>2026</th>
+  </tr></thead>
+  <tbody>{rows_html}</tbody>
+  <tfoot><tr style="border-top: 2px solid #5A3040;">
+    <td style="color:{TEXT_LIGHT};font-weight:600;font-family:'Playfair Display',serif;">Total</td>
+    <td style="color:{TEXT_LIGHT};font-weight:600;text-align:right;">{fmt(df[df.year==2024]['total_revenue'].sum())}</td>
+    <td style="color:{TEXT_LIGHT};font-weight:600;text-align:right;">{fmt(df[df.year==2025]['total_revenue'].sum())}</td>
+    <td style="color:{ACCENT};font-weight:600;text-align:right;">{fmt(df[df.year==2026]['total_revenue'].sum())}</td>
+  </tr></tfoot>
+</table>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Footer ─────────────────────────────────────────────────────────────────────
+st.markdown(f"""
+<div class="dash-footer">
+  Purge This Organize That · Data refreshes every 5 minutes · {now.strftime("%I:%M %p")}
+</div>
+""", unsafe_allow_html=True)
