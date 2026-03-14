@@ -286,8 +286,6 @@ with tab1:
 # TAB 2 — LOG A JOB
 # ════════════════════════════════════════════════════════════════════════════════
 with tab2:
-    import io
-    from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 
     st.markdown('<div class="section-title">Log a New Job</div>', unsafe_allow_html=True)
 
@@ -377,66 +375,53 @@ with tab2:
         else:
             try:
                 with st.spinner("Saving to Google Sheets…"):
-                    service = get_drive_service()
+                    import json, os
+                    from googleapiclient.discovery import build as build_service
+                    from google.oauth2 import service_account as sa
 
-                    # Download current spreadsheet
-                    request = service.files().export_media(
-                        fileId=FILE_ID_2026,
-                        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    # Get credentials with both Drive and Sheets scopes
+                    if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+                        info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
+                    else:
+                        info = dict(st.secrets["gcp_service_account"])
+
+                    creds = sa.Credentials.from_service_account_info(
+                        info,
+                        scopes=[
+                            "https://www.googleapis.com/auth/drive",
+                            "https://www.googleapis.com/auth/spreadsheets"
+                        ]
                     )
-                    buf = io.BytesIO()
-                    downloader = MediaIoBaseDownload(buf, request)
-                    done = False
-                    while not done:
-                        _, done = downloader.next_chunk()
-                    buf.seek(0)
+                    sheets_service = build_service("sheets", "v4", credentials=creds)
 
-                    # Load into pandas
-                    wb_df = pd.read_excel(buf, sheet_name=SHEET_2026, header=0)
+                    # Build new row in column order
+                    worker_val = worker if worker != "None" else ""
+                    new_row_values = [
+                        customer_name,
+                        job_date.strftime("%Y-%m-%d"),
+                        address,
+                        description,
+                        hours,
+                        rate,
+                        income,
+                        mileage,
+                        "",          # $ Collected
+                        "",          # Referral Amount
+                        worker_val,
+                        worker_rate if worker != "None" else "",
+                        worker_hours if worker != "None" else "",
+                        worker_total if worker != "None" else 0,
+                        "",          # Worker Paid
+                        net_revenue,
+                    ]
 
-                    # Build new row matching spreadsheet columns
-                    new_row = {
-                        ' Name': customer_name,
-                        'Date of Work': pd.Timestamp(job_date),
-                        'Customer Address': address,
-                        'Desc.': description,
-                        ' Hours Worked': hours,
-                        'Hoursly Rate': rate,
-                        'Income for Job': income,
-                        'Travel Mileage': mileage,
-                        '$ Collected': '',
-                        'Referal Amount': '',
-                        'Worker': worker if worker != "None" else '',
-                        'Worker rate': worker_rate if worker != "None" else '',
-                        'Worker hours': worker_hours if worker != "None" else '',
-                        'Worker total': worker_total if worker != "None" else 0,
-                        'Worker Paid': '',
-                        'Net Revenue': net_revenue,
-                    }
-
-                    # Find last job row (before the summary columns on the right)
-                    last_row = wb_df[wb_df[' Name'].notna() & wb_df[' Name'].astype(str).str.strip().ne('')].index.max()
-                    insert_idx = last_row + 1
-
-                    # Insert the new row
-                    new_row_df = pd.DataFrame([new_row])
-                    wb_df = pd.concat([wb_df.iloc[:insert_idx], new_row_df, wb_df.iloc[insert_idx:]], ignore_index=True)
-
-                    # Save back to buffer
-                    out_buf = io.BytesIO()
-                    with pd.ExcelWriter(out_buf, engine='openpyxl') as writer:
-                        wb_df.to_excel(writer, sheet_name=SHEET_2026, index=False)
-                    out_buf.seek(0)
-
-                    # Upload back to Google Drive
-                    media = MediaIoBaseUpload(
-                        out_buf,
-                        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        resumable=True
-                    )
-                    service.files().update(
-                        fileId=FILE_ID_2026,
-                        media_body=media
+                    # Append row to sheet
+                    sheets_service.spreadsheets().values().append(
+                        spreadsheetId=FILE_ID_2026,
+                        range=f"{SHEET_2026}!A:P",
+                        valueInputOption="USER_ENTERED",
+                        insertDataOption="INSERT_ROWS",
+                        body={"values": [new_row_values]}
                     ).execute()
 
                 st.success(f"✅ Job saved! {customer_name} · {description} · ${net_revenue:,.0f} net revenue")
