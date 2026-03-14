@@ -34,18 +34,20 @@ MONTHS = [
 
 
 def get_drive_service():
-    try:
+    import os, json
+    if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+        info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
+        creds = service_account.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/drive.readonly"])
+    elif hasattr(st, 'secrets') and "gcp_service_account" in st.secrets:
         creds = service_account.Credentials.from_service_account_info(
             st.secrets["gcp_service_account"],
-            scopes=["https://www.googleapis.com/auth/drive.readonly"],
-        )
-    except (KeyError, FileNotFoundError):
+            scopes=["https://www.googleapis.com/auth/drive.readonly"])
+    else:
         creds = service_account.Credentials.from_service_account_file(
             "service_account.json",
-            scopes=["https://www.googleapis.com/auth/drive.readonly"],
-        )
+            scopes=["https://www.googleapis.com/auth/drive.readonly"])
     return build("drive", "v3", credentials=creds)
-
 
 def download_excel(service, file_id):
     meta = service.files().get(fileId=file_id, fields="mimeType").execute()
