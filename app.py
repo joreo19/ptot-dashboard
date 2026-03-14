@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
-from data_loader import load_all_data, build_monthly_df, MONTHS, WORKER_COLS
+from datetime import datetime, date
+from data_loader import load_all_data, build_monthly_df, MONTHS, WORKER_COLS, get_drive_service
 
 st.set_page_config(
     page_title="Purge This Organize That",
@@ -12,9 +12,9 @@ st.set_page_config(
 )
 
 # ── Bold, high-contrast palette ───────────────────────────────────────────────
-COLOR_2024 = "#4FC3F7"   # bright sky blue
-COLOR_2025 = "#FFB74D"   # vivid amber
-COLOR_2026 = "#F06292"   # hot pink (current year)
+COLOR_2024 = "#4FC3F7"
+COLOR_2025 = "#FFB74D"
+COLOR_2026 = "#F06292"
 BG_DARK    = "#1C1518"
 BG_CARD    = "#251C20"
 TEXT_LIGHT = "#F5EDE8"
@@ -23,11 +23,12 @@ ACCENT     = "#F06292"
 ACCENT2    = "#FFB74D"
 
 WORKER_COLORS = {
-    "tracy":    "#F06292",   # hot pink
-    "tricia":   "#4FC3F7",   # sky blue
-    "kristi":   "#A5D6A7",   # mint green
-    "chandler": "#FFB74D",   # amber
-    "macy":     "#CE93D8",   # lavender
+    "tracy":    "#F06292",
+    "tricia":   "#4FC3F7",
+    "kristi":   "#A5D6A7",
+    "chandler": "#FFB74D",
+    "macy":     "#CE93D8",
+    "amber":    "#80DEEA",
 }
 
 st.markdown(f"""
@@ -65,51 +66,11 @@ st.markdown(f"""
   div[data-testid="stToolbar"] {{ display: none; }}
   footer {{ display: none; }}
   .stSpinner > div {{ border-top-color: {ACCENT} !important; }}
-
-  /* Year color legend pills */
-  .legend-row {{ display: flex; gap: 1rem; margin-bottom: .5rem; padding-left: .5rem; }}
-  .legend-pill {{ display: flex; align-items: center; gap: .4rem; font-size: .75rem; color: {TEXT_DIM}; }}
-  .legend-dot {{ width: 10px; height: 10px; border-radius: 50%; }}
+  .stTabs [data-baseweb="tab-list"] {{ gap: 8px; background-color: {BG_CARD}; border-radius: 12px; padding: 4px; }}
+  .stTabs [data-baseweb="tab"] {{ background-color: transparent; color: {TEXT_DIM}; border-radius: 8px; padding: 8px 20px; font-family: 'Jost', sans-serif; font-size: .85rem; }}
+  .stTabs [aria-selected="true"] {{ background-color: {ACCENT} !important; color: white !important; }}
 </style>
 """, unsafe_allow_html=True)
-
-@st.cache_data(ttl=300)
-def get_data():
-    raw = load_all_data()
-    return build_monthly_df(raw)
-
-with st.spinner("Loading your data…"):
-    df = get_data()
-
-now = datetime.now()
-current_month_num = now.month
-current_month_name = MONTHS[current_month_num - 1]
-
-def ytd(df, year):
-    return df[(df.year == year) & (df.month_num <= current_month_num)]["total_revenue"].sum()
-
-def fmt(v):
-    return f"${v:,.0f}"
-
-def delta_html(curr, prev):
-    if prev == 0:
-        return '<span class="delta-neutral">—</span>'
-    pct = (curr - prev) / prev * 100
-    cls = "delta-up" if pct >= 0 else "delta-down"
-    arrow = "▲" if pct >= 0 else "▼"
-    return f'<span class="{cls}">{arrow} {abs(pct):.1f}% vs prior year</span>'
-
-def chart_layout(height=300):
-    return dict(
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Jost", color=TEXT_DIM, size=11),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                    font=dict(size=13, color=TEXT_LIGHT)),
-        margin=dict(l=10, r=10, t=30, b=10),
-        xaxis=dict(showgrid=False, tickfont=dict(size=10), tickangle=-30),
-        yaxis=dict(showgrid=True, gridcolor="#2E1E24"),
-        height=height,
-    )
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.markdown(f"""
@@ -117,166 +78,369 @@ st.markdown(f"""
   <div class="tagline-top">Business Performance Dashboard</div>
   <h1>Purge This <em>Organize That</em></h1>
   <div class="flourish">— ✦ —</div>
-  <p style="margin-top:.6rem">Year-over-Year Revenue · Updated {now.strftime("%B %d, %Y")}</p>
+  <p style="margin-top:.6rem">Year-over-Year Revenue · Updated {datetime.now().strftime("%B %d, %Y")}</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ── KPI Cards ──────────────────────────────────────────────────────────────────
-ytd_2026 = ytd(df, 2026)
-ytd_2025 = ytd(df, 2025)
-ytd_2024 = ytd(df, 2024)
-annual_2025 = df[df.year == 2025]["total_revenue"].sum()
-annual_2024 = df[df.year == 2024]["total_revenue"].sum()
-cur_month_2026 = df[(df.year == 2026) & (df.month == current_month_name)]["total_revenue"].sum()
-cur_month_2025 = df[(df.year == 2025) & (df.month == current_month_name)]["total_revenue"].sum()
+# ── Tabs ───────────────────────────────────────────────────────────────────────
+tab1, tab2 = st.tabs(["📊 Dashboard", "➕ Log a Job"])
 
-st.markdown(f"""
-<div class="kpi-grid">
-  <div class="kpi-card">
-    <div class="kpi-label">2026 YTD Revenue</div>
-    <div class="kpi-value">{fmt(ytd_2026)}</div>
-    <div class="kpi-delta">{delta_html(ytd_2026, ytd_2025)}</div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-label">{current_month_name} 2026</div>
-    <div class="kpi-value">{fmt(cur_month_2026)}</div>
-    <div class="kpi-delta">{delta_html(cur_month_2026, cur_month_2025)}</div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-label">Full Year 2025</div>
-    <div class="kpi-value">{fmt(annual_2025)}</div>
-    <div class="kpi-delta">{delta_html(annual_2025, annual_2024)}</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+# ════════════════════════════════════════════════════════════════════════════════
+# TAB 1 — DASHBOARD
+# ════════════════════════════════════════════════════════════════════════════════
+with tab1:
+    @st.cache_data(ttl=300)
+    def get_data():
+        raw = load_all_data()
+        return build_monthly_df(raw)
 
-# ── Monthly Revenue Bar Chart ──────────────────────────────────────────────────
-st.markdown('<div class="section-title">Monthly Revenue — 3-Year View</div>', unsafe_allow_html=True)
-fig_bar = go.Figure()
-for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
-    ydata = [df[(df.year == year) & (df.month == m)]["total_revenue"].values[0]
-             if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
-    fig_bar.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
-                             hovertemplate="<b>%{x}</b><br>Revenue: $%{y:,.0f}<extra></extra>"))
-layout = chart_layout(300)
-layout["yaxis"]["tickprefix"] = "$"
-layout["yaxis"]["tickformat"] = ","
-fig_bar.update_layout(**layout, barmode="group")
-st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
-st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
-st.markdown('</div>', unsafe_allow_html=True)
+    with st.spinner("Loading your data…"):
+        df = get_data()
 
-# ── Jobs Count Bar Chart ───────────────────────────────────────────────────────
-st.markdown('<div class="section-title">Jobs Per Month — 3-Year View</div>', unsafe_allow_html=True)
-fig_jobs = go.Figure()
-for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
-    ydata = [int(df[(df.year == year) & (df.month == m)]["jobs"].values[0])
-             if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
-    fig_jobs.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
-                              hovertemplate="<b>%{x}</b><br>Jobs: %{y}<extra></extra>"))
-fig_jobs.update_layout(**chart_layout(280), barmode="group")
-st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
-st.plotly_chart(fig_jobs, use_container_width=True, config={"displayModeBar": False})
-st.markdown('</div>', unsafe_allow_html=True)
+    now = datetime.now()
+    current_month_num = now.month
+    current_month_name = MONTHS[current_month_num - 1]
 
-# ── Worker Revenue Breakdown ───────────────────────────────────────────────────
-st.markdown('<div class="section-title">Worker Revenue Breakdown — 2026</div>', unsafe_allow_html=True)
-workers_2026 = [w.lower() for w in WORKER_COLS[2026] if w != "Total"]
-fig_workers = go.Figure()
-for w in workers_2026:
-    col = f"worker_{w}"
-    if col in df.columns:
-        ydata = [df[(df.year == 2026) & (df.month == m)][col].values[0]
-                 if len(df[(df.year == 2026) & (df.month == m)]) else 0 for m in MONTHS]
-        fig_workers.add_trace(go.Bar(
-            name=w.capitalize(), x=MONTHS, y=ydata,
-            marker_color=WORKER_COLORS.get(w, "#888"),
-            hovertemplate=f"<b>%{{x}}</b><br>{w.capitalize()}: $%{{y:,.0f}}<extra></extra>"
-        ))
-layout_w = chart_layout(280)
-layout_w["yaxis"]["tickprefix"] = "$"
-layout_w["yaxis"]["tickformat"] = ","
-fig_workers.update_layout(**layout_w, barmode="stack")
-st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
-st.plotly_chart(fig_workers, use_container_width=True, config={"displayModeBar": False})
-st.markdown('</div>', unsafe_allow_html=True)
+    def ytd(df, year):
+        return df[(df.year == year) & (df.month_num <= current_month_num)]["total_revenue"].sum()
 
-# ── YTD Cumulative Line Chart ──────────────────────────────────────────────────
-st.markdown('<div class="section-title">Cumulative YTD Revenue</div>', unsafe_allow_html=True)
-fig_line = go.Figure()
-for year, color, width, dash in [(2024, COLOR_2024, 2, "dot"), (2025, COLOR_2025, 2.5, "dash"), (2026, COLOR_2026, 3.5, "solid")]:
-    cumvals, running = [], 0
-    for i, m in enumerate(MONTHS):
-        if year == 2026 and i + 1 > current_month_num:
-            break
-        val = df[(df.year == year) & (df.month == m)]["total_revenue"].values
-        running += val[0] if len(val) else 0
-        cumvals.append((m, running))
-    fig_line.add_trace(go.Scatter(name=str(year), x=[c[0] for c in cumvals], y=[c[1] for c in cumvals],
-        mode="lines+markers", line=dict(color=color, width=width, dash=dash), marker=dict(size=6),
-        hovertemplate="<b>%{x}</b><br>Cumulative: $%{y:,.0f}<extra></extra>"))
-layout_l = chart_layout(280)
-layout_l["yaxis"]["tickprefix"] = "$"
-layout_l["yaxis"]["tickformat"] = ","
-fig_line.update_layout(**layout_l)
-st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
-st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
-st.markdown('</div>', unsafe_allow_html=True)
+    def fmt(v):
+        return f"${v:,.0f}"
 
-# ── Monthly Revenue Table ──────────────────────────────────────────────────────
-st.markdown('<div class="section-title">Monthly Revenue Breakdown</div>', unsafe_allow_html=True)
-rows_html = ""
-for i, month in enumerate(MONTHS):
-    r24 = df[(df.year == 2024) & (df.month == month)]
-    r25 = df[(df.year == 2025) & (df.month == month)]
-    r26 = df[(df.year == 2026) & (df.month == month)]
-    v24 = r24["total_revenue"].values[0] if len(r24) else 0
-    v25 = r25["total_revenue"].values[0] if len(r25) else 0
-    v26 = r26["total_revenue"].values[0] if len(r26) else 0
-    j24 = int(r24["jobs"].values[0]) if len(r24) else 0
-    j25 = int(r25["jobs"].values[0]) if len(r25) else 0
-    j26 = int(r26["jobs"].values[0]) if len(r26) else 0
+    def delta_html(curr, prev):
+        if prev == 0:
+            return '<span class="delta-neutral">—</span>'
+        pct = (curr - prev) / prev * 100
+        cls = "delta-up" if pct >= 0 else "delta-down"
+        arrow = "▲" if pct >= 0 else "▼"
+        return f'<span class="{cls}">{arrow} {abs(pct):.1f}% vs prior year</span>'
 
-    def cell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{fmt(v)}</td>"
-    def jcell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{v}</td>"
+    def chart_layout(height=300):
+        return dict(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Jost", color=TEXT_DIM, size=11),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                        font=dict(size=13, color=TEXT_LIGHT)),
+            margin=dict(l=10, r=10, t=30, b=10),
+            xaxis=dict(showgrid=False, tickfont=dict(size=10), tickangle=-30),
+            yaxis=dict(showgrid=True, gridcolor="#2E1E24"),
+            height=height,
+        )
 
-    is_current = (i + 1 == current_month_num)
-    row_class = ' class="current-month"' if is_current else ""
-    marker = " ✦" if is_current else ""
-    rows_html += f"<tr{row_class}><td>{month}{marker}</td>{cell(v24)}{jcell(j24)}{cell(v25)}{jcell(j25)}{cell(v26)}{jcell(j26)}</tr>"
+    ytd_2026 = ytd(df, 2026)
+    ytd_2025 = ytd(df, 2025)
+    ytd_2024 = ytd(df, 2024)
+    annual_2025 = df[df.year == 2025]["total_revenue"].sum()
+    annual_2024 = df[df.year == 2024]["total_revenue"].sum()
+    cur_month_2026 = df[(df.year == 2026) & (df.month == current_month_name)]["total_revenue"].sum()
+    cur_month_2025 = df[(df.year == 2025) & (df.month == current_month_name)]["total_revenue"].sum()
 
-st.markdown(f"""
-<div class="chart-wrap">
-<table class="rev-table">
-  <thead>
-    <tr>
-      <th rowspan="2">Month</th>
-      <th colspan="2" style="text-align:center;color:{COLOR_2024};border-bottom:1px solid #3A2830;">2024</th>
-      <th colspan="2" style="text-align:center;color:{COLOR_2025};border-bottom:1px solid #3A2830;">2025</th>
-      <th colspan="2" style="text-align:center;color:{COLOR_2026};border-bottom:1px solid #3A2830;">2026</th>
-    </tr>
-    <tr>
-      <th>Revenue</th><th>Jobs</th>
-      <th>Revenue</th><th>Jobs</th>
-      <th>Revenue</th><th>Jobs</th>
-    </tr>
-  </thead>
-  <tbody>{rows_html}</tbody>
-  <tfoot><tr style="border-top: 2px solid #5A3040;">
-    <td style="color:{TEXT_LIGHT};font-weight:600;font-family:'Playfair Display',serif;">Total</td>
-    <td style="color:{COLOR_2024};font-weight:600;text-align:right;">{fmt(df[df.year==2024]['total_revenue'].sum())}</td>
-    <td style="color:{COLOR_2024};font-weight:600;text-align:right;">{int(df[df.year==2024]['jobs'].sum())}</td>
-    <td style="color:{COLOR_2025};font-weight:600;text-align:right;">{fmt(df[df.year==2025]['total_revenue'].sum())}</td>
-    <td style="color:{COLOR_2025};font-weight:600;text-align:right;">{int(df[df.year==2025]['jobs'].sum())}</td>
-    <td style="color:{COLOR_2026};font-weight:600;text-align:right;">{fmt(df[df.year==2026]['total_revenue'].sum())}</td>
-    <td style="color:{COLOR_2026};font-weight:600;text-align:right;">{int(df[df.year==2026]['jobs'].sum())}</td>
-  </tr></tfoot>
-</table>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">2026 YTD Revenue</div>
+        <div class="kpi-value">{fmt(ytd_2026)}</div>
+        <div class="kpi-delta">{delta_html(ytd_2026, ytd_2025)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">{current_month_name} 2026</div>
+        <div class="kpi-value">{fmt(cur_month_2026)}</div>
+        <div class="kpi-delta">{delta_html(cur_month_2026, cur_month_2025)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Full Year 2025</div>
+        <div class="kpi-value">{fmt(annual_2025)}</div>
+        <div class="kpi-delta">{delta_html(annual_2025, annual_2024)}</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown(f"""
-<div class="dash-footer">
-  Purge This Organize That · Data refreshes every 5 minutes · {now.strftime("%I:%M %p")}
-</div>
-""", unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Monthly Revenue — 3-Year View</div>', unsafe_allow_html=True)
+    fig_bar = go.Figure()
+    for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
+        ydata = [df[(df.year == year) & (df.month == m)]["total_revenue"].values[0]
+                 if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
+        fig_bar.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
+                                 hovertemplate="<b>%{x}</b><br>Revenue: $%{y:,.0f}<extra></extra>"))
+    layout = chart_layout(300)
+    layout["yaxis"]["tickprefix"] = "$"
+    layout["yaxis"]["tickformat"] = ","
+    fig_bar.update_layout(**layout, barmode="group")
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Jobs Per Month — 3-Year View</div>', unsafe_allow_html=True)
+    fig_jobs = go.Figure()
+    for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
+        ydata = [int(df[(df.year == year) & (df.month == m)]["jobs"].values[0])
+                 if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
+        fig_jobs.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
+                                  hovertemplate="<b>%{x}</b><br>Jobs: %{y}<extra></extra>"))
+    fig_jobs.update_layout(**chart_layout(280), barmode="group")
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.plotly_chart(fig_jobs, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Worker Revenue Breakdown — 2026</div>', unsafe_allow_html=True)
+    workers_2026 = [w.lower() for w in WORKER_COLS[2026] if w != "Total"]
+    fig_workers = go.Figure()
+    for w in workers_2026:
+        col = f"worker_{w}"
+        if col in df.columns:
+            ydata = [df[(df.year == 2026) & (df.month == m)][col].values[0]
+                     if len(df[(df.year == 2026) & (df.month == m)]) else 0 for m in MONTHS]
+            fig_workers.add_trace(go.Bar(
+                name=w.capitalize(), x=MONTHS, y=ydata,
+                marker_color=WORKER_COLORS.get(w, "#888"),
+                hovertemplate=f"<b>%{{x}}</b><br>{w.capitalize()}: $%{{y:,.0f}}<extra></extra>"
+            ))
+    layout_w = chart_layout(280)
+    layout_w["yaxis"]["tickprefix"] = "$"
+    layout_w["yaxis"]["tickformat"] = ","
+    fig_workers.update_layout(**layout_w, barmode="stack")
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.plotly_chart(fig_workers, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Cumulative YTD Revenue</div>', unsafe_allow_html=True)
+    fig_line = go.Figure()
+    for year, color, width, dash in [(2024, COLOR_2024, 2, "dot"), (2025, COLOR_2025, 2.5, "dash"), (2026, COLOR_2026, 3.5, "solid")]:
+        cumvals, running = [], 0
+        for i, m in enumerate(MONTHS):
+            if year == 2026 and i + 1 > current_month_num:
+                break
+            val = df[(df.year == year) & (df.month == m)]["total_revenue"].values
+            running += val[0] if len(val) else 0
+            cumvals.append((m, running))
+        fig_line.add_trace(go.Scatter(name=str(year), x=[c[0] for c in cumvals], y=[c[1] for c in cumvals],
+            mode="lines+markers", line=dict(color=color, width=width, dash=dash), marker=dict(size=6),
+            hovertemplate="<b>%{x}</b><br>Cumulative: $%{y:,.0f}<extra></extra>"))
+    layout_l = chart_layout(280)
+    layout_l["yaxis"]["tickprefix"] = "$"
+    layout_l["yaxis"]["tickformat"] = ","
+    fig_line.update_layout(**layout_l)
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Monthly Revenue Breakdown</div>', unsafe_allow_html=True)
+    rows_html = ""
+    for i, month in enumerate(MONTHS):
+        r24 = df[(df.year == 2024) & (df.month == month)]
+        r25 = df[(df.year == 2025) & (df.month == month)]
+        r26 = df[(df.year == 2026) & (df.month == month)]
+        v24 = r24["total_revenue"].values[0] if len(r24) else 0
+        v25 = r25["total_revenue"].values[0] if len(r25) else 0
+        v26 = r26["total_revenue"].values[0] if len(r26) else 0
+        j24 = int(r24["jobs"].values[0]) if len(r24) else 0
+        j25 = int(r25["jobs"].values[0]) if len(r25) else 0
+        j26 = int(r26["jobs"].values[0]) if len(r26) else 0
+
+        def cell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{fmt(v)}</td>"
+        def jcell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{v}</td>"
+
+        is_current = (i + 1 == current_month_num)
+        row_class = ' class="current-month"' if is_current else ""
+        marker = " ✦" if is_current else ""
+        rows_html += f"<tr{row_class}><td>{month}{marker}</td>{cell(v24)}{jcell(j24)}{cell(v25)}{jcell(j25)}{cell(v26)}{jcell(j26)}</tr>"
+
+    st.markdown(f"""
+    <div class="chart-wrap">
+    <table class="rev-table">
+      <thead>
+        <tr>
+          <th rowspan="2">Month</th>
+          <th colspan="2" style="text-align:center;color:{COLOR_2024};border-bottom:1px solid #3A2830;">2024</th>
+          <th colspan="2" style="text-align:center;color:{COLOR_2025};border-bottom:1px solid #3A2830;">2025</th>
+          <th colspan="2" style="text-align:center;color:{COLOR_2026};border-bottom:1px solid #3A2830;">2026</th>
+        </tr>
+        <tr>
+          <th>Revenue</th><th>Jobs</th>
+          <th>Revenue</th><th>Jobs</th>
+          <th>Revenue</th><th>Jobs</th>
+        </tr>
+      </thead>
+      <tbody>{rows_html}</tbody>
+      <tfoot><tr style="border-top: 2px solid #5A3040;">
+        <td style="color:{TEXT_LIGHT};font-weight:600;font-family:'Playfair Display',serif;">Total</td>
+        <td style="color:{COLOR_2024};font-weight:600;text-align:right;">{fmt(df[df.year==2024]['total_revenue'].sum())}</td>
+        <td style="color:{COLOR_2024};font-weight:600;text-align:right;">{int(df[df.year==2024]['jobs'].sum())}</td>
+        <td style="color:{COLOR_2025};font-weight:600;text-align:right;">{fmt(df[df.year==2025]['total_revenue'].sum())}</td>
+        <td style="color:{COLOR_2025};font-weight:600;text-align:right;">{int(df[df.year==2025]['jobs'].sum())}</td>
+        <td style="color:{COLOR_2026};font-weight:600;text-align:right;">{fmt(df[df.year==2026]['total_revenue'].sum())}</td>
+        <td style="color:{COLOR_2026};font-weight:600;text-align:right;">{int(df[df.year==2026]['jobs'].sum())}</td>
+      </tr></tfoot>
+    </table>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="dash-footer">
+      Purge This Organize That · Data refreshes every 5 minutes · {datetime.now().strftime("%I:%M %p")}
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TAB 2 — LOG A JOB
+# ════════════════════════════════════════════════════════════════════════════════
+with tab2:
+    import io
+    from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
+
+    st.markdown('<div class="section-title">Log a New Job</div>', unsafe_allow_html=True)
+
+    # Known customers with their addresses for quick fill
+    KNOWN_CUSTOMERS = {
+        "Brie Ribner":    "11858 Mohican Dr",
+        "Cam Noden":      "35031 Woodfield Dr",
+        "Jane Deese":     "6 Dayton Cir",
+        "Cam and Steve":  "35031 Woodfield Dr",
+        "New Customer":   "",
+    }
+
+    FILE_ID_2026 = "1HXxWSZ4gouasd-STZpi0w0GX9C5u4K7V"
+    SHEET_2026   = "2026 PTOT Tracking"
+
+    with st.form("job_entry_form", clear_on_submit=True):
+        # ── Customer ──────────────────────────────────────────────────────────
+        customer_choice = st.selectbox(
+            "Customer Name",
+            options=list(KNOWN_CUSTOMERS.keys()),
+            help="Select existing customer or choose New Customer"
+        )
+
+        if customer_choice == "New Customer":
+            customer_name = st.text_input("Enter Customer Name")
+            address = st.text_input("Customer Address")
+        else:
+            customer_name = customer_choice
+            address = st.text_input("Customer Address", value=KNOWN_CUSTOMERS[customer_choice])
+
+        # ── Job Details ───────────────────────────────────────────────────────
+        col1, col2 = st.columns(2)
+        with col1:
+            job_date = st.date_input("Date of Work", value=date.today())
+        with col2:
+            description = st.text_input("Job Description", placeholder="e.g. bedroom closet, kitchen")
+
+        col3, col4, col5 = st.columns(3)
+        with col3:
+            hours = st.number_input("Hours Worked", min_value=0.5, max_value=12.0, value=4.0, step=0.5)
+        with col4:
+            rate = st.number_input("Hourly Rate ($)", min_value=0, value=65, step=5)
+        with col5:
+            mileage = st.number_input("Travel Mileage", min_value=0, value=0, step=1)
+
+        # ── Worker ────────────────────────────────────────────────────────────
+        st.markdown("**Helper (optional)**")
+        col6, col7, col8 = st.columns(3)
+        with col6:
+            worker = st.selectbox("Worker", options=["None", "Kristi", "Amber"])
+        with col7:
+            worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0, value=20, step=5,
+                                          disabled=(worker == "None"))
+        with col8:
+            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=0.0, step=0.5,
+                                           disabled=(worker == "None"))
+
+        # ── Calculated preview ────────────────────────────────────────────────
+        income = hours * rate
+        worker_total = (worker_rate * worker_hours) if worker != "None" else 0
+        net_revenue = income - worker_total
+
+        st.markdown(f"""
+        <div style="background:{BG_CARD};border:1px solid #3A2830;border-radius:12px;padding:1rem;margin:1rem 0;">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;text-align:center;">
+            <div>
+              <div style="color:{TEXT_DIM};font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;">Income</div>
+              <div style="color:{COLOR_2026};font-size:1.3rem;font-family:'Playfair Display',serif;">${income:,.0f}</div>
+            </div>
+            <div>
+              <div style="color:{TEXT_DIM};font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;">Worker Pay</div>
+              <div style="color:{COLOR_2025};font-size:1.3rem;font-family:'Playfair Display',serif;">${worker_total:,.0f}</div>
+            </div>
+            <div>
+              <div style="color:{TEXT_DIM};font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;">Net Revenue</div>
+              <div style="color:#A5D6A7;font-size:1.3rem;font-family:'Playfair Display',serif;">${net_revenue:,.0f}</div>
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        submitted = st.form_submit_button("✅ Save Job to Spreadsheet", use_container_width=True)
+
+    if submitted:
+        if not customer_name or not description:
+            st.error("Please fill in Customer Name and Job Description.")
+        else:
+            try:
+                with st.spinner("Saving to Google Sheets…"):
+                    service = get_drive_service()
+
+                    # Download current spreadsheet
+                    request = service.files().export_media(
+                        fileId=FILE_ID_2026,
+                        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    buf = io.BytesIO()
+                    downloader = MediaIoBaseDownload(buf, request)
+                    done = False
+                    while not done:
+                        _, done = downloader.next_chunk()
+                    buf.seek(0)
+
+                    # Load into pandas
+                    wb_df = pd.read_excel(buf, sheet_name=SHEET_2026, header=0)
+
+                    # Build new row matching spreadsheet columns
+                    new_row = {
+                        ' Name': customer_name,
+                        'Date of Work': pd.Timestamp(job_date),
+                        'Customer Address': address,
+                        'Desc.': description,
+                        ' Hours Worked': hours,
+                        'Hoursly Rate': rate,
+                        'Income for Job': income,
+                        'Travel Mileage': mileage,
+                        '$ Collected': '',
+                        'Referal Amount': '',
+                        'Worker': worker if worker != "None" else '',
+                        'Worker rate': worker_rate if worker != "None" else '',
+                        'Worker hours': worker_hours if worker != "None" else '',
+                        'Worker total': worker_total if worker != "None" else 0,
+                        'Worker Paid': '',
+                        'Net Revenue': net_revenue,
+                    }
+
+                    # Find last job row (before the summary columns on the right)
+                    last_row = wb_df[wb_df[' Name'].notna() & wb_df[' Name'].astype(str).str.strip().ne('')].index.max()
+                    insert_idx = last_row + 1
+
+                    # Insert the new row
+                    new_row_df = pd.DataFrame([new_row])
+                    wb_df = pd.concat([wb_df.iloc[:insert_idx], new_row_df, wb_df.iloc[insert_idx:]], ignore_index=True)
+
+                    # Save back to buffer
+                    out_buf = io.BytesIO()
+                    with pd.ExcelWriter(out_buf, engine='openpyxl') as writer:
+                        wb_df.to_excel(writer, sheet_name=SHEET_2026, index=False)
+                    out_buf.seek(0)
+
+                    # Upload back to Google Drive
+                    media = MediaIoBaseUpload(
+                        out_buf,
+                        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        resumable=True
+                    )
+                    service.files().update(
+                        fileId=FILE_ID_2026,
+                        media_body=media
+                    ).execute()
+
+                st.success(f"✅ Job saved! {customer_name} · {description} · ${net_revenue:,.0f} net revenue")
+                st.cache_data.clear()
+
+            except Exception as e:
+                st.error(f"Error saving job: {str(e)}")
