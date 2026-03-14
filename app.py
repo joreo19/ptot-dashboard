@@ -282,6 +282,7 @@ with tab1:
     """, unsafe_allow_html=True)
 
 
+
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 2 — LOG A JOB
 # ════════════════════════════════════════════════════════════════════════════════
@@ -289,34 +290,37 @@ with tab2:
 
     st.markdown('<div class="section-title">Log a New Job</div>', unsafe_allow_html=True)
 
-    # Known customers with their addresses for quick fill
     KNOWN_CUSTOMERS = {
-        "Brie Ribner":    "11858 Mohican Dr",
-        "Cam Noden":      "35031 Woodfield Dr",
-        "Jane Deese":     "6 Dayton Cir",
-        "Cam and Steve":  "35031 Woodfield Dr",
-        "New Customer":   "",
+        "Brie Ribner":   "11858 Mohican Dr",
+        "Cam Noden":     "35031 Woodfield Dr",
+        "Jane Deese":    "6 Dayton Cir",
+        "Cam and Steve": "35031 Woodfield Dr",
     }
 
     FILE_ID_2026 = "1HXxWSZ4gouasd-STZpi0w0GX9C5u4K7V"
     SHEET_2026   = "2026 PTOT Tracking"
 
+    # Initialize session state
+    if "cname" not in st.session_state:
+        st.session_state["cname"] = ""
+    if "caddr" not in st.session_state:
+        st.session_state["caddr"] = ""
+
+    # Quick select buttons
+    st.markdown(f'<div style="color:{TEXT_DIM};font-size:.75rem;margin-bottom:.4rem;letter-spacing:.05em;">QUICK SELECT EXISTING CUSTOMER</div>', unsafe_allow_html=True)
+    qcols = st.columns(len(KNOWN_CUSTOMERS))
+    for i, (name, addr) in enumerate(KNOWN_CUSTOMERS.items()):
+        if qcols[i].button(name, key=f"qs_{i}", use_container_width=True):
+            st.session_state["cname"] = name
+            st.session_state["caddr"] = addr
+            st.rerun()
+
+    # Customer name and address fields outside the form so quick-select works
+    customer_name = st.text_input("Customer Name", value=st.session_state["cname"], placeholder="Type a name or use quick select above")
+    address       = st.text_input("Customer Address", value=st.session_state["caddr"], placeholder="Street address")
+
     with st.form("job_entry_form", clear_on_submit=True):
-        # ── Customer ──────────────────────────────────────────────────────────
-        customer_choice = st.selectbox(
-            "Customer Name",
-            options=list(KNOWN_CUSTOMERS.keys()),
-            help="Select existing customer or choose New Customer"
-        )
 
-        if customer_choice == "New Customer":
-            customer_name = st.text_input("Enter Customer Name")
-            address = st.text_input("Customer Address")
-        else:
-            customer_name = customer_choice
-            address = st.text_input("Customer Address", value=KNOWN_CUSTOMERS[customer_choice])
-
-        # ── Job Details ───────────────────────────────────────────────────────
         col1, col2 = st.columns(2)
         with col1:
             job_date = st.date_input("Date of Work", value=date.today())
@@ -331,7 +335,6 @@ with tab2:
         with col5:
             mileage = st.number_input("Travel Mileage", min_value=0, value=0, step=1)
 
-        # ── Worker ────────────────────────────────────────────────────────────
         st.markdown("**Helper (optional)**")
         col6, col7, col8 = st.columns(3)
         with col6:
@@ -343,13 +346,12 @@ with tab2:
             worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=0.0, step=0.5,
                                            disabled=(worker == "None"))
 
-        # ── Calculated preview ────────────────────────────────────────────────
-        income = hours * rate
+        income       = hours * rate
         worker_total = (worker_rate * worker_hours) if worker != "None" else 0
-        net_revenue = income - worker_total
+        net_revenue  = income - worker_total
 
         st.markdown(f"""
-        <div style="background:{BG_CARD};border:1px solid #3A2830;border-radius:12px;padding:1rem;margin:1rem 0;">
+        <div style="background:{BG_DARK};border:1px solid #3A2830;border-radius:12px;padding:1rem;margin:1rem 0;">
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;text-align:center;">
             <div>
               <div style="color:{TEXT_DIM};font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;">Income</div>
@@ -370,7 +372,9 @@ with tab2:
         submitted = st.form_submit_button("✅ Save Job to Spreadsheet", use_container_width=True)
 
     if submitted:
-        if not customer_name or not description:
+        final_name = customer_name.strip()
+        final_addr = address.strip()
+        if not final_name or not description:
             st.error("Please fill in Customer Name and Job Description.")
         else:
             try:
@@ -379,7 +383,6 @@ with tab2:
                     from googleapiclient.discovery import build as build_service
                     from google.oauth2 import service_account as sa
 
-                    # Get credentials with both Drive and Sheets scopes
                     if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
                         info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
                     else:
@@ -394,28 +397,26 @@ with tab2:
                     )
                     sheets_service = build_service("sheets", "v4", credentials=creds)
 
-                    # Build new row in column order
                     worker_val = worker if worker != "None" else ""
                     new_row_values = [
-                        customer_name,
+                        final_name,
                         job_date.strftime("%Y-%m-%d"),
-                        address,
+                        final_addr,
                         description,
-                        hours,
-                        rate,
-                        income,
-                        mileage,
-                        "",          # $ Collected
-                        "",          # Referral Amount
+                        float(hours),
+                        float(rate),
+                        float(income),
+                        float(mileage),
+                        "",
+                        "",
                         worker_val,
-                        worker_rate if worker != "None" else "",
-                        worker_hours if worker != "None" else "",
-                        worker_total if worker != "None" else 0,
-                        "",          # Worker Paid
-                        net_revenue,
+                        float(worker_rate) if worker != "None" else "",
+                        float(worker_hours) if worker != "None" else "",
+                        float(worker_total) if worker != "None" else 0,
+                        "",
+                        float(net_revenue),
                     ]
 
-                    # Append row to sheet
                     sheets_service.spreadsheets().values().append(
                         spreadsheetId=FILE_ID_2026,
                         range=f"{SHEET_2026}!A:P",
@@ -424,8 +425,10 @@ with tab2:
                         body={"values": [new_row_values]}
                     ).execute()
 
-                st.success(f"✅ Job saved! {customer_name} · {description} · ${net_revenue:,.0f} net revenue")
+                st.session_state["cname"] = ""
+                st.session_state["caddr"] = ""
                 st.cache_data.clear()
+                st.success(f"✅ Job saved! {final_name} · {description} · ${net_revenue:,.0f} net revenue")
 
             except Exception as e:
                 st.error(f"Error saving job: {str(e)}")
