@@ -12,9 +12,12 @@ st.set_page_config(
 )
 
 # ── Bold, high-contrast palette ───────────────────────────────────────────────
-COLOR_2024 = "#4FC3F7"
-COLOR_2025 = "#FFB74D"
-COLOR_2026 = "#F06292"
+COLOR_2021 = "#B39DDB"   # soft purple
+COLOR_2022 = "#80CBC4"   # teal
+COLOR_2023 = "#EF9A9A"   # soft red
+COLOR_2024 = "#4FC3F7"   # bright sky blue
+COLOR_2025 = "#FFB74D"   # vivid amber
+COLOR_2026 = "#F06292"   # hot pink (current year)"
 BG_DARK    = "#1C1518"
 BG_CARD    = "#251C20"
 TEXT_LIGHT = "#F5EDE8"
@@ -157,7 +160,7 @@ with tab1:
 
     st.markdown('<div class="section-title">Monthly Revenue — 3-Year View</div>', unsafe_allow_html=True)
     fig_bar = go.Figure()
-    for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
+    for year, color in [(2021, COLOR_2021), (2022, COLOR_2022), (2023, COLOR_2023), (2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
         ydata = [df[(df.year == year) & (df.month == m)]["total_revenue"].values[0]
                  if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
         fig_bar.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
@@ -172,7 +175,7 @@ with tab1:
 
     st.markdown('<div class="section-title">Jobs Per Month — 3-Year View</div>', unsafe_allow_html=True)
     fig_jobs = go.Figure()
-    for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
+    for year, color in [(2021, COLOR_2021), (2022, COLOR_2022), (2023, COLOR_2023), (2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
         ydata = [int(df[(df.year == year) & (df.month == m)]["jobs"].values[0])
                  if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
         fig_jobs.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
@@ -205,7 +208,7 @@ with tab1:
 
     st.markdown('<div class="section-title">Cumulative YTD Revenue</div>', unsafe_allow_html=True)
     fig_line = go.Figure()
-    for year, color, width, dash in [(2024, COLOR_2024, 2, "dot"), (2025, COLOR_2025, 2.5, "dash"), (2026, COLOR_2026, 3.5, "solid")]:
+    for year, color, width, dash in [(2021, COLOR_2021, 1.5, "dot"), (2022, COLOR_2022, 1.5, "dot"), (2023, COLOR_2023, 1.5, "dot"), (2024, COLOR_2024, 2, "dot"), (2025, COLOR_2025, 2.5, "dash"), (2026, COLOR_2026, 3.5, "solid")]:
         cumvals, running = [], 0
         for i, m in enumerate(MONTHS):
             if year == 2026 and i + 1 > current_month_num:
@@ -226,50 +229,35 @@ with tab1:
 
     st.markdown('<div class="section-title">Monthly Revenue Breakdown</div>', unsafe_allow_html=True)
     rows_html = ""
+    all_years = [2021, 2022, 2023, 2024, 2025, 2026]
     for i, month in enumerate(MONTHS):
-        r24 = df[(df.year == 2024) & (df.month == month)]
-        r25 = df[(df.year == 2025) & (df.month == month)]
-        r26 = df[(df.year == 2026) & (df.month == month)]
-        v24 = r24["total_revenue"].values[0] if len(r24) else 0
-        v25 = r25["total_revenue"].values[0] if len(r25) else 0
-        v26 = r26["total_revenue"].values[0] if len(r26) else 0
-        j24 = int(r24["jobs"].values[0]) if len(r24) else 0
-        j25 = int(r25["jobs"].values[0]) if len(r25) else 0
-        j26 = int(r26["jobs"].values[0]) if len(r26) else 0
-
         def cell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{fmt(v)}</td>"
         def jcell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{v}</td>"
-
         is_current = (i + 1 == current_month_num)
         row_class = ' class="current-month"' if is_current else ""
         marker = " ✦" if is_current else ""
-        rows_html += f"<tr{row_class}><td>{month}{marker}</td>{cell(v24)}{jcell(j24)}{cell(v25)}{jcell(j25)}{cell(v26)}{jcell(j26)}</tr>"
+        cells = ""
+        for yr in all_years:
+            r = df[(df.year == yr) & (df.month == month)]
+            v = r["total_revenue"].values[0] if len(r) else 0
+            j = int(r["jobs"].values[0]) if len(r) else 0
+            cells += cell(v) + jcell(j)
+        rows_html += f"<tr{row_class}><td>{month}{marker}</td>{cells}</tr>"
 
+    yr_headers = "".join([f'<th colspan="2" style="text-align:center;color:{c};border-bottom:1px solid #3A2830;">{y}</th>' for y, c in [(2021,COLOR_2021),(2022,COLOR_2022),(2023,COLOR_2023),(2024,COLOR_2024),(2025,COLOR_2025),(2026,COLOR_2026)]])
+    yr_subheaders = '<th>Revenue</th><th>Jobs</th>' * 6
+    yr_totals = "".join([f'<td style="color:{c};font-weight:600;text-align:right;">{fmt(df[df.year=={y}]["total_revenue"].sum())}</td><td style="color:{c};font-weight:600;text-align:right;">{int(df[df.year=={y}]["jobs"].sum())}</td>' for y, c in [(2021,COLOR_2021),(2022,COLOR_2022),(2023,COLOR_2023),(2024,COLOR_2024),(2025,COLOR_2025),(2026,COLOR_2026)]])
     st.markdown(f"""
-    <div class="chart-wrap">
+    <div class="chart-wrap" style="overflow-x:auto;">
     <table class="rev-table">
       <thead>
-        <tr>
-          <th rowspan="2">Month</th>
-          <th colspan="2" style="text-align:center;color:{COLOR_2024};border-bottom:1px solid #3A2830;">2024</th>
-          <th colspan="2" style="text-align:center;color:{COLOR_2025};border-bottom:1px solid #3A2830;">2025</th>
-          <th colspan="2" style="text-align:center;color:{COLOR_2026};border-bottom:1px solid #3A2830;">2026</th>
-        </tr>
-        <tr>
-          <th>Revenue</th><th>Jobs</th>
-          <th>Revenue</th><th>Jobs</th>
-          <th>Revenue</th><th>Jobs</th>
-        </tr>
+        <tr><th rowspan="2">Month</th>{yr_headers}</tr>
+        <tr>{yr_subheaders}</tr>
       </thead>
       <tbody>{rows_html}</tbody>
       <tfoot><tr style="border-top: 2px solid #5A3040;">
         <td style="color:{TEXT_LIGHT};font-weight:600;font-family:'Playfair Display',serif;">Total</td>
-        <td style="color:{COLOR_2024};font-weight:600;text-align:right;">{fmt(df[df.year==2024]['total_revenue'].sum())}</td>
-        <td style="color:{COLOR_2024};font-weight:600;text-align:right;">{int(df[df.year==2024]['jobs'].sum())}</td>
-        <td style="color:{COLOR_2025};font-weight:600;text-align:right;">{fmt(df[df.year==2025]['total_revenue'].sum())}</td>
-        <td style="color:{COLOR_2025};font-weight:600;text-align:right;">{int(df[df.year==2025]['jobs'].sum())}</td>
-        <td style="color:{COLOR_2026};font-weight:600;text-align:right;">{fmt(df[df.year==2026]['total_revenue'].sum())}</td>
-        <td style="color:{COLOR_2026};font-weight:600;text-align:right;">{int(df[df.year==2026]['jobs'].sum())}</td>
+        {yr_totals}
       </tr></tfoot>
     </table>
     </div>
@@ -382,9 +370,11 @@ with tab2:
         with col6:
             worker = st.selectbox("Worker", options=["None", "Kristi", "Amber"])
         with col7:
-            worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0, value=20, step=5)
+            worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0, value=20, step=5,
+                                          disabled=(worker == "None"))
         with col8:
-            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=4.0, step=0.5)
+            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=0.0, step=0.5,
+                                           disabled=(worker == "None"))
 
         income       = hours * rate
         worker_total = (worker_rate * worker_hours) if worker != "None" else 0

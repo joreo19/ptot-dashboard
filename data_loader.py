@@ -6,20 +6,29 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
 FILE_IDS = {
+    2021: "1OM3TRbLOUs1OCMnYE1JWJZxm0kgiXLpzxPFXHBCba-g",
+    2022: "1aQMX6OLLJ5zq11dWtfGikrVa97ISccmbjshK3I3bHYs",
+    2023: "1HIubq96nJZ8TANPsWTuGXHh3xbLHbrAiG4JNWgyYsdk",
     2024: "1niQOJRj4cNzaeZ8RA7Q_CT8qKlLDOmdHyTVRLXWW1gs",
     2025: "1XwzGK9bHGkW-8-3ifYu0t_qtKFa3Dqyl",
     2026: "1iVAghLUz1gIPFK-1Qq77YbdCW-9ILnb5TOANvv1t2G8",
 }
 
 SHEET_NAMES = {
+    2021: "2021 PTOT Tracking",
+    2022: "2022 PTOT Tracking",
+    2023: "2023 PTOT Tracking",
     2024: "2024 PTOT Tracking",
     2025: "2025 PTOT Tracking",
     2026: "2026 PTOT Tracking",
 }
 
-MONTH_COL = {2024: 22, 2025: 20, 2026: 20}
+MONTH_COL = {2021: 14, 2022: 22, 2023: 22, 2024: 22, 2025: 20, 2026: 20}
 
 WORKER_COLS = {
+    2021: ["Total"],
+    2022: ["Total", "Tracy", "Chandler", "Tricia"],
+    2023: ["Total", "Tracy", "Chandler", "Tricia", "Macy"],
     2024: ["Total", "Tracy", "Chandler", "Tricia", "Macy"],
     2025: ["Total", "Tracy", "Tricia", "Kristi"],
     2026: ["Total", "Tracy", "Amber", "Kristi"],
@@ -107,7 +116,7 @@ def parse_monthly_totals(buf, year):
 def load_all_data():
     service = get_drive_service()
     all_data = {}
-    for year in [2024, 2025, 2026]:
+    for year in [2021, 2022, 2023, 2024, 2025, 2026]:
         buf = download_excel(service, FILE_IDS[year])
         all_data[year] = parse_monthly_totals(buf, year)
     return all_data
