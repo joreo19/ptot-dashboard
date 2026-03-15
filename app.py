@@ -160,7 +160,7 @@ with tab1:
 
     st.markdown('<div class="section-title">Monthly Revenue — 3-Year View</div>', unsafe_allow_html=True)
     fig_bar = go.Figure()
-    for year, color in [(2021, COLOR_2021), (2022, COLOR_2022), (2023, COLOR_2023), (2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
+    for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
         ydata = [df[(df.year == year) & (df.month == m)]["total_revenue"].values[0]
                  if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
         fig_bar.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
@@ -175,7 +175,7 @@ with tab1:
 
     st.markdown('<div class="section-title">Jobs Per Month — 3-Year View</div>', unsafe_allow_html=True)
     fig_jobs = go.Figure()
-    for year, color in [(2021, COLOR_2021), (2022, COLOR_2022), (2023, COLOR_2023), (2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
+    for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
         ydata = [int(df[(df.year == year) & (df.month == m)]["jobs"].values[0])
                  if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
         fig_jobs.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
