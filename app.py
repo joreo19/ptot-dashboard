@@ -384,7 +384,7 @@ with tab2:
         with col7:
             worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0, value=20, step=5)
         with col8:
-            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=0.0, step=0.5)
+            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=4.0, step=0.5)
 
         income       = hours * rate
         worker_total = (worker_rate * worker_hours) if worker != "None" else 0
