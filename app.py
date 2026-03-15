@@ -290,34 +290,76 @@ with tab2:
 
     st.markdown('<div class="section-title">Log a New Job</div>', unsafe_allow_html=True)
 
-    KNOWN_CUSTOMERS = {
-        "Brie Ribner":   "11858 Mohican Dr",
-        "Cam Noden":     "35031 Woodfield Dr",
-        "Jane Deese":    "6 Dayton Cir",
-        "Cam and Steve": "35031 Woodfield Dr",
-    }
-
     FILE_ID_2026 = "1iVAghLUz1gIPFK-1Qq77YbdCW-9ILnb5TOANvv1t2G8"
     SHEET_2026   = "2026 PTOT Tracking"
 
+    # Load customer list dynamically from the sheet
+    @st.cache_data(ttl=120)
+    def load_customers():
+        import json, os
+        from googleapiclient.discovery import build as build_service
+        from google.oauth2 import service_account as sa
+        if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+            info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
+        else:
+            info = dict(st.secrets["gcp_service_account"])
+        creds = sa.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
+        svc = build_service("sheets", "v4", credentials=creds)
+        result = svc.spreadsheets().values().get(
+            spreadsheetId=FILE_ID_2026,
+            range=f"{SHEET_2026}!A:H"
+        ).execute()
+        rows = result.get("values", [])
+        customers = {}
+        for row in rows[1:]:  # skip header
+            if not row or not row[0].strip():
+                continue
+            name = row[0].strip()
+            addr = row[2].strip() if len(row) > 2 else ""
+            mil  = float(row[7]) if len(row) > 7 and row[7].strip().replace('.','').isdigit() else 0
+            if name not in customers:
+                customers[name] = {"address": addr, "mileage": mil}
+            else:
+                # Update mileage with most recent entry
+                if mil > 0:
+                    customers[name]["mileage"] = mil
+        return customers
+
+    try:
+        customers = load_customers()
+    except Exception:
+        customers = {}
+
     # Initialize session state
     if "cname" not in st.session_state:
-        st.session_state["cname"] = ""
+        st.session_state["cname"] = "-- New Customer --"
     if "caddr" not in st.session_state:
         st.session_state["caddr"] = ""
+    if "cmileage" not in st.session_state:
+        st.session_state["cmileage"] = 0
 
-    # Quick select buttons
-    st.markdown(f'<div style="color:{TEXT_DIM};font-size:.75rem;margin-bottom:.4rem;letter-spacing:.05em;">QUICK SELECT EXISTING CUSTOMER</div>', unsafe_allow_html=True)
-    qcols = st.columns(len(KNOWN_CUSTOMERS))
-    for i, (name, addr) in enumerate(KNOWN_CUSTOMERS.items()):
-        if qcols[i].button(name, key=f"qs_{i}", use_container_width=True):
-            st.session_state["cname"] = name
-            st.session_state["caddr"] = addr
-            st.rerun()
+    # Dropdown of existing customers
+    dropdown_options = ["-- New Customer --"] + sorted(customers.keys())
+    selected = st.selectbox(
+        "Select Existing Customer (or choose New Customer to type a new name)",
+        options=dropdown_options,
+        key="customer_dropdown"
+    )
 
-    # Customer name and address fields outside the form so quick-select works
-    customer_name = st.text_input("Customer Name", value=st.session_state["cname"], placeholder="Type a name or use quick select above")
-    address       = st.text_input("Customer Address", value=st.session_state["caddr"], placeholder="Street address")
+    # Auto-fill when existing customer selected
+    if selected != "-- New Customer --" and selected in customers:
+        default_name    = selected
+        default_address = customers[selected]["address"]
+        default_mileage = int(customers[selected]["mileage"])
+    else:
+        default_name    = ""
+        default_address = ""
+        default_mileage = 0
+
+    # Customer name and address fields
+    customer_name = st.text_input("Customer Name", value=default_name, placeholder="Type name for new customer")
+    address       = st.text_input("Customer Address", value=default_address, placeholder="Street address")
 
     with st.form("job_entry_form", clear_on_submit=True):
 
@@ -333,7 +375,7 @@ with tab2:
         with col4:
             rate = st.number_input("Hourly Rate ($)", min_value=0, value=65, step=5)
         with col5:
-            mileage = st.number_input("Travel Mileage", min_value=0, value=0, step=1)
+            mileage = st.number_input("Travel Mileage", min_value=0, value=default_mileage, step=1)
 
         st.markdown("**Helper (optional)**")
         col6, col7, col8 = st.columns(3)
