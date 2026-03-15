@@ -417,11 +417,24 @@ with tab2:
                         float(net_revenue),
                     ]
 
-                    sheets_service.spreadsheets().values().append(
+                    # Find the last row with a customer name in column A
+                    col_a = sheets_service.spreadsheets().values().get(
                         spreadsheetId=FILE_ID_2026,
-                        range=f"{SHEET_2026}!A:P",
+                        range=f"{SHEET_2026}!A:A"
+                    ).execute()
+                    existing = col_a.get("values", [])
+                    # Find last non-empty row in col A
+                    last_row = 0
+                    for i, row in enumerate(existing):
+                        if row and str(row[0]).strip():
+                            last_row = i + 1  # 1-indexed
+                    next_row = last_row + 1
+
+                    # Write directly to that specific row
+                    sheets_service.spreadsheets().values().update(
+                        spreadsheetId=FILE_ID_2026,
+                        range=f"{SHEET_2026}!A{next_row}:P{next_row}",
                         valueInputOption="USER_ENTERED",
-                        insertDataOption="INSERT_ROWS",
                         body={"values": [new_row_values]}
                     ).execute()
 
