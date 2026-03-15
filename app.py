@@ -670,29 +670,29 @@ with tab4:
     @st.cache_data(ttl=300)
     @st.cache_data(ttl=300)
     def load_client_data():
-        import json, os
-        from googleapiclient.discovery import build as build_service
-        from google.oauth2 import service_account as sa
-        if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
-            info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
-        else:
-            info = dict(st.secrets["gcp_service_account"])
-        creds = sa.Credentials.from_service_account_info(
-            info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
-        svc = build_service("sheets", "v4", credentials=creds)
-        result = svc.spreadsheets().values().get(
-            spreadsheetId="1iVAghLUz1gIPFK-1Qq77YbdCW-9ILnb5TOANvv1t2G8",
-            range="2026 PTOT Tracking!A:P"
-        ).execute()
-        rows = result.get("values", [])
+        import io
+        from googleapiclient.http import MediaIoBaseDownload
+        import pandas as pd
+        svc = get_drive_service()
+        request = svc.files().export_media(
+            fileId="1iVAghLUz1gIPFK-1Qq77YbdCW-9ILnb5TOANvv1t2G8",
+            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        buf = io.BytesIO()
+        dl = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = dl.next_chunk()
+        buf.seek(0)
+        df_c = pd.read_excel(buf, sheet_name="2026 PTOT Tracking", header=0)
         clients = {}
         freq = {}
-        for row in rows[1:]:
-            if not row or not row[0].strip():
+        for _, row in df_c.iterrows():
+            name = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
+            if not name or name.startswith("Unnamed"):
                 continue
-            name = row[0].strip()
             try:
-                rev = float(row[15]) if len(row) > 15 and row[15] else 0
+                rev = float(row.iloc[15]) if pd.notna(row.iloc[15]) else 0
             except (ValueError, TypeError):
                 rev = 0
             clients[name] = clients.get(name, 0) + rev
