@@ -22,7 +22,7 @@ MONTH_COL = {2024: 22, 2025: 20, 2026: 20}
 WORKER_COLS = {
     2024: ["Total", "Tracy", "Chandler", "Tricia", "Macy"],
     2025: ["Total", "Tracy", "Tricia", "Kristi"],
-    2026: ["Total", "Tracy", "Tricia", "Kristi"],
+    2026: ["Total", "Tracy", "Amber", "Kristi"],
 }
 
 MONTHS = [
