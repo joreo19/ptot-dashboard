@@ -86,7 +86,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "➕ Log a Job", "💰 Unpaid Jobs"])
+tab1, tab4, tab2, tab3 = st.tabs(["📊 Dashboard", "📈 Insights", "➕ Log a Job", "💰 Unpaid Jobs"])
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — DASHBOARD
@@ -160,7 +160,7 @@ with tab1:
 
     st.markdown('<div class="section-title">Monthly Revenue — 3-Year View</div>', unsafe_allow_html=True)
     fig_bar = go.Figure()
-    for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
+    for year, color in [(2021, COLOR_2021), (2022, COLOR_2022), (2023, COLOR_2023), (2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
         ydata = [df[(df.year == year) & (df.month == m)]["total_revenue"].values[0]
                  if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
         fig_bar.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
@@ -175,7 +175,7 @@ with tab1:
 
     st.markdown('<div class="section-title">Jobs Per Month — 3-Year View</div>', unsafe_allow_html=True)
     fig_jobs = go.Figure()
-    for year, color in [(2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
+    for year, color in [(2021, COLOR_2021), (2022, COLOR_2022), (2023, COLOR_2023), (2024, COLOR_2024), (2025, COLOR_2025), (2026, COLOR_2026)]:
         ydata = [int(df[(df.year == year) & (df.month == m)]["jobs"].values[0])
                  if len(df[(df.year == year) & (df.month == m)]) else 0 for m in MONTHS]
         fig_jobs.add_trace(go.Bar(name=str(year), x=MONTHS, y=ydata, marker_color=color,
@@ -561,3 +561,234 @@ with tab3:
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TAB 4 — INSIGHTS
+# ════════════════════════════════════════════════════════════════════════════════
+with tab4:
+
+    @st.cache_data(ttl=300)
+    def get_insight_data():
+        raw = load_all_data()
+        return build_monthly_df(raw)
+
+    df_i = get_insight_data()
+    now_i = datetime.now()
+    cur_month_i = now_i.month
+
+    def chart_layout_i(height=280):
+        return dict(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Jost", color="#9E8580", size=11),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                        font=dict(size=12, color="#F5EDE8")),
+            margin=dict(l=10, r=10, t=30, b=10),
+            xaxis=dict(showgrid=False, tickfont=dict(size=10), tickangle=-30),
+            yaxis=dict(showgrid=True, gridcolor="#2E1E24"),
+            height=height,
+        )
+
+    # ── 1. YTD Pace ──────────────────────────────────────────────────────────
+    st.markdown('<div class="section-title">YTD Pace — 2026 vs Prior Years</div>', unsafe_allow_html=True)
+
+    fig_pace = go.Figure()
+    for year, color, width, dash in [(2024, COLOR_2024, 2, "dot"), (2025, COLOR_2025, 2.5, "dash"), (2026, COLOR_2026, 3.5, "solid")]:
+        cumvals, running = [], 0
+        for i, m in enumerate(MONTHS):
+            if i + 1 > cur_month_i:
+                break
+            val = df_i[(df_i.year == year) & (df_i.month == m)]["total_revenue"].values
+            running += val[0] if len(val) else 0
+            cumvals.append((m, running))
+        fig_pace.add_trace(go.Scatter(
+            name=str(year), x=[c[0] for c in cumvals], y=[c[1] for c in cumvals],
+            mode="lines+markers", line=dict(color=color, width=width, dash=dash),
+            marker=dict(size=7),
+            hovertemplate="<b>%{x}</b><br>YTD: $%{y:,.0f}<extra></extra>"
+        ))
+    layout_p = chart_layout_i(280)
+    layout_p["yaxis"]["tickprefix"] = "$"
+    layout_p["yaxis"]["tickformat"] = ","
+    fig_pace.update_layout(**layout_p)
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.plotly_chart(fig_pace, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── 2. Average Revenue per Job ────────────────────────────────────────────
+    st.markdown('<div class="section-title">Average Revenue per Job by Year</div>', unsafe_allow_html=True)
+
+    avg_data = []
+    for year in [2021, 2022, 2023, 2024, 2025, 2026]:
+        yr_df = df_i[df_i.year == year]
+        total_rev = yr_df["total_revenue"].sum()
+        total_jobs = yr_df["jobs"].sum()
+        avg = total_rev / total_jobs if total_jobs > 0 else 0
+        avg_data.append((year, avg))
+
+    colors_all = [COLOR_2021, COLOR_2022, COLOR_2023, COLOR_2024, COLOR_2025, COLOR_2026]
+    fig_avg = go.Figure(go.Bar(
+        x=[str(a[0]) for a in avg_data],
+        y=[a[1] for a in avg_data],
+        marker_color=colors_all,
+        hovertemplate="<b>%{x}</b><br>Avg per job: $%{y:,.0f}<extra></extra>",
+        showlegend=False
+    ))
+    layout_a = chart_layout_i(260)
+    layout_a["yaxis"]["tickprefix"] = "$"
+    layout_a["yaxis"]["tickformat"] = ","
+    fig_avg.update_layout(**layout_a)
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.plotly_chart(fig_avg, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── 3. Seasonal Monthly Average ───────────────────────────────────────────
+    st.markdown('<div class="section-title">Seasonal Pattern — Average Revenue by Month (All Years)</div>', unsafe_allow_html=True)
+
+    seasonal = []
+    for m in MONTHS:
+        vals = df_i[df_i.month == m]["total_revenue"]
+        seasonal.append(vals.mean() if len(vals) else 0)
+
+    fig_seas = go.Figure(go.Bar(
+        x=MONTHS, y=seasonal,
+        marker_color=COLOR_2026,
+        hovertemplate="<b>%{x}</b><br>Avg Revenue: $%{y:,.0f}<extra></extra>",
+        showlegend=False
+    ))
+    layout_s = chart_layout_i(260)
+    layout_s["yaxis"]["tickprefix"] = "$"
+    layout_s["yaxis"]["tickformat"] = ","
+    fig_seas.update_layout(**layout_s)
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.plotly_chart(fig_seas, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── 4. Best Performing Months ─────────────────────────────────────────────
+    st.markdown('<div class="section-title">Best Performing Months (All Years Combined)</div>', unsafe_allow_html=True)
+
+    month_totals = []
+    for m in MONTHS:
+        total = df_i[df_i.month == m]["total_revenue"].sum()
+        month_totals.append((m, total))
+    month_totals_sorted = sorted(month_totals, key=lambda x: x[1], reverse=True)
+
+    fig_best = go.Figure(go.Bar(
+        x=[m[0] for m in month_totals_sorted],
+        y=[m[1] for m in month_totals_sorted],
+        marker_color=COLOR_2025,
+        hovertemplate="<b>%{x}</b><br>Total Revenue: $%{y:,.0f}<extra></extra>",
+        showlegend=False
+    ))
+    layout_b = chart_layout_i(260)
+    layout_b["yaxis"]["tickprefix"] = "$"
+    layout_b["yaxis"]["tickformat"] = ","
+    fig_best.update_layout(**layout_b)
+    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+    st.plotly_chart(fig_best, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── 5. Top Clients 2026 ───────────────────────────────────────────────────
+    st.markdown('<div class="section-title">Top Clients by Revenue — 2026</div>', unsafe_allow_html=True)
+
+    @st.cache_data(ttl=300)
+    def load_client_data():
+        import json, os
+        from googleapiclient.discovery import build as build_service
+        from google.oauth2 import service_account as sa
+        if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+            info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
+        else:
+            info = dict(st.secrets["gcp_service_account"])
+        creds = sa.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
+        svc = build_service("sheets", "v4", credentials=creds)
+        result = svc.spreadsheets().values().get(
+            spreadsheetId="1iVAghLUz1gIPFK-1Qq77YbdCW-9ILnb5TOANvv1t2G8",
+            range="2026 PTOT Tracking!A:P"
+        ).execute()
+        rows = result.get("values", [])
+        clients = {}
+        freq = {}
+        for row in rows[1:]:
+            if not row or not row[0].strip():
+                continue
+            name = row[0].strip()
+            try:
+                rev = float(row[15]) if len(row) > 15 and row[15] else 0
+            except (ValueError, TypeError):
+                rev = 0
+            clients[name] = clients.get(name, 0) + rev
+            freq[name] = freq.get(name, 0) + 1
+        return clients, freq
+
+    try:
+        clients, freq = load_client_data()
+
+        # Top clients by revenue
+        top_clients = sorted(clients.items(), key=lambda x: x[1], reverse=True)[:8]
+        fig_clients = go.Figure(go.Bar(
+            x=[c[0] for c in top_clients],
+            y=[c[1] for c in top_clients],
+            marker_color=COLOR_2026,
+            hovertemplate="<b>%{x}</b><br>Revenue: $%{y:,.0f}<extra></extra>",
+            showlegend=False
+        ))
+        layout_c = chart_layout_i(260)
+        layout_c["yaxis"]["tickprefix"] = "$"
+        layout_c["yaxis"]["tickformat"] = ","
+        layout_c["xaxis"]["tickangle"] = -30
+        fig_clients.update_layout(**layout_c)
+        st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+        st.plotly_chart(fig_clients, use_container_width=True, config={"displayModeBar": False})
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── 6. Client Frequency ───────────────────────────────────────────────
+        st.markdown('<div class="section-title">Client Visit Frequency — 2026</div>', unsafe_allow_html=True)
+        top_freq = sorted(freq.items(), key=lambda x: x[1], reverse=True)[:8]
+        fig_freq = go.Figure(go.Bar(
+            x=[c[0] for c in top_freq],
+            y=[c[1] for c in top_freq],
+            marker_color=COLOR_2024,
+            hovertemplate="<b>%{x}</b><br>Visits: %{y}<extra></extra>",
+            showlegend=False
+        ))
+        layout_f = chart_layout_i(260)
+        layout_f["xaxis"]["tickangle"] = -30
+        fig_freq.update_layout(**layout_f)
+        st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+        st.plotly_chart(fig_freq, use_container_width=True, config={"displayModeBar": False})
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── 7. Tracy Take-Home vs Worker Costs ───────────────────────────────
+        st.markdown('<div class="section-title">Tracy\'s Revenue vs Worker Costs — 2026</div>', unsafe_allow_html=True)
+        result2 = svc.spreadsheets().values().get(
+            spreadsheetId="1iVAghLUz1gIPFK-1Qq77YbdCW-9ILnb5TOANvv1t2G8",
+            range="2026 PTOT Tracking!A:P"
+        ).execute() if False else None
+
+        tracy_by_month = []
+        worker_by_month = []
+        for m in MONTHS:
+            r = df_i[(df_i.year == 2026) & (df_i.month == m)]
+            tracy = r["worker_tracy"].values[0] if len(r) and "worker_tracy" in r.columns else 0
+            worker_cost = (r["worker_amber"].values[0] if len(r) and "worker_amber" in r.columns else 0) + \
+                          (r["worker_kristi"].values[0] if len(r) and "worker_kristi" in r.columns else 0)
+            tracy_by_month.append(tracy)
+            worker_by_month.append(worker_cost)
+
+        fig_split = go.Figure()
+        fig_split.add_trace(go.Bar(name="Tracy", x=MONTHS, y=tracy_by_month,
+            marker_color=COLOR_2026, hovertemplate="<b>%{x}</b><br>Tracy: $%{y:,.0f}<extra></extra>"))
+        fig_split.add_trace(go.Bar(name="Workers", x=MONTHS, y=worker_by_month,
+            marker_color=COLOR_2025, hovertemplate="<b>%{x}</b><br>Workers: $%{y:,.0f}<extra></extra>"))
+        layout_sp = chart_layout_i(260)
+        layout_sp["yaxis"]["tickprefix"] = "$"
+        layout_sp["yaxis"]["tickformat"] = ","
+        fig_split.update_layout(**layout_sp, barmode="stack")
+        st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
+        st.plotly_chart(fig_split, use_container_width=True, config={"displayModeBar": False})
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    except Exception as e:
+        st.error(f"Error loading client data: {str(e)}")
