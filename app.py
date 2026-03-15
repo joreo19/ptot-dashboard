@@ -246,7 +246,11 @@ with tab1:
 
     yr_headers = "".join([f'<th colspan="2" style="text-align:center;color:{c};border-bottom:1px solid #3A2830;">{y}</th>' for y, c in [(2021,COLOR_2021),(2022,COLOR_2022),(2023,COLOR_2023),(2024,COLOR_2024),(2025,COLOR_2025),(2026,COLOR_2026)]])
     yr_subheaders = '<th>Revenue</th><th>Jobs</th>' * 6
-    yr_totals = "".join([f'<td style="color:{c};font-weight:600;text-align:right;">{fmt(df[df.year=={y}]["total_revenue"].sum())}</td><td style="color:{c};font-weight:600;text-align:right;">{int(df[df.year=={y}]["jobs"].sum())}</td>' for y, c in [(2021,COLOR_2021),(2022,COLOR_2022),(2023,COLOR_2023),(2024,COLOR_2024),(2025,COLOR_2025),(2026,COLOR_2026)]])
+    yr_totals = ""
+    for _y, _c in [(2021,COLOR_2021),(2022,COLOR_2022),(2023,COLOR_2023),(2024,COLOR_2024),(2025,COLOR_2025),(2026,COLOR_2026)]:
+        _rev = fmt(df[df.year==_y]["total_revenue"].sum())
+        _jobs = int(df[df.year==_y]["jobs"].sum())
+        yr_totals += f'<td style="color:{_c};font-weight:600;text-align:right;">{_rev}</td><td style="color:{_c};font-weight:600;text-align:right;">{_jobs}</td>'
     st.markdown(f"""
     <div class="chart-wrap" style="overflow-x:auto;">
     <table class="rev-table">
