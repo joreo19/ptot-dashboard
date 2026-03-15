@@ -647,7 +647,7 @@ with tab4:
 
     seasonal = []
     for m in MONTHS:
-        vals = df_i[df_i.month == m]["total_revenue"]
+        vals = df_i[(df_i.month == m) & (df_i.year >= 2023)]["total_revenue"]
         seasonal.append(vals.mean() if len(vals) else 0)
 
     fig_seas = go.Figure(go.Bar(
@@ -664,33 +664,10 @@ with tab4:
     st.plotly_chart(fig_seas, use_container_width=True, config={"displayModeBar": False})
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── 4. Best Performing Months ─────────────────────────────────────────────
-    st.markdown('<div class="section-title">Best Performing Months (All Years Combined)</div>', unsafe_allow_html=True)
-
-    month_totals = []
-    for m in MONTHS:
-        total = df_i[df_i.month == m]["total_revenue"].sum()
-        month_totals.append((m, total))
-    month_totals_sorted = sorted(month_totals, key=lambda x: x[1], reverse=True)
-
-    fig_best = go.Figure(go.Bar(
-        x=[m[0] for m in month_totals_sorted],
-        y=[m[1] for m in month_totals_sorted],
-        marker_color=COLOR_2025,
-        hovertemplate="<b>%{x}</b><br>Total Revenue: $%{y:,.0f}<extra></extra>",
-        showlegend=False
-    ))
-    layout_b = chart_layout_i(260)
-    layout_b["yaxis"]["tickprefix"] = "$"
-    layout_b["yaxis"]["tickformat"] = ","
-    fig_best.update_layout(**layout_b)
-    st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
-    st.plotly_chart(fig_best, use_container_width=True, config={"displayModeBar": False})
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── 5. Top Clients 2026 ───────────────────────────────────────────────────
+    # ── 4. Top Clients 2026 ───────────────────────────────────────────────────
     st.markdown('<div class="section-title">Top Clients by Revenue — 2026</div>', unsafe_allow_html=True)
 
+    @st.cache_data(ttl=300)
     @st.cache_data(ttl=300)
     def load_client_data():
         import json, os
