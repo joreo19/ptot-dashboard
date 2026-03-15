@@ -667,12 +667,6 @@ with tab4:
     # ── 4. Top Clients 2026 ───────────────────────────────────────────────────
     st.markdown('<div class="section-title">Top Clients by Revenue — 2026</div>', unsafe_allow_html=True)
 
-    @st.cache_data(ttl=300)
-    # Build client data from already-loaded df_i
-    df_2026 = df_i[df_i.year == 2026].copy()
-    # We need raw job-level data - use load_all_data buf directly via drive
-    # Instead, build from monthly df using worker_tracy as proxy for net revenue per client
-    # Pull raw 2026 data fresh using existing drive service
     try:
         import io
         from googleapiclient.http import MediaIoBaseDownload
