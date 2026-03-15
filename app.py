@@ -83,7 +83,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab1, tab2 = st.tabs(["📊 Dashboard", "➕ Log a Job"])
+tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "➕ Log a Job", "💰 Unpaid Jobs"])
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — DASHBOARD
@@ -487,3 +487,85 @@ with tab2:
 
             except Exception as e:
                 st.error(f"Error saving job: {str(e)}")
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TAB 3 — UNPAID JOBS
+# ════════════════════════════════════════════════════════════════════════════════
+with tab3:
+
+    st.markdown('<div class="section-title">Outstanding Payments</div>', unsafe_allow_html=True)
+
+    FILE_ID_2026_T3 = "1iVAghLUz1gIPFK-1Qq77YbdCW-9ILnb5TOANvv1t2G8"
+    SHEET_2026_T3   = "2026 PTOT Tracking"
+
+    @st.cache_data(ttl=60)
+    def load_unpaid():
+        import json, os
+        from googleapiclient.discovery import build as build_service
+        from google.oauth2 import service_account as sa
+        if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+            info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
+        else:
+            info = dict(st.secrets["gcp_service_account"])
+        creds = sa.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"])
+        svc = build_service("sheets", "v4", credentials=creds)
+        result = svc.spreadsheets().values().get(
+            spreadsheetId=FILE_ID_2026_T3,
+            range=f"{SHEET_2026_T3}!A:I"
+        ).execute()
+        rows = result.get("values", [])
+        unpaid = []
+        for i, row in enumerate(rows[1:], start=2):
+            if not row or not row[0].strip():
+                continue
+            name      = row[0].strip()
+            date_val  = row[1].strip() if len(row) > 1 else ""
+            collected = row[8].strip().upper() if len(row) > 8 else ""
+            if collected != "Y":
+                unpaid.append({"row": i, "name": name, "date": date_val})
+        return unpaid
+
+    def mark_paid(row_num):
+        import json, os
+        from googleapiclient.discovery import build as build_service
+        from google.oauth2 import service_account as sa
+        if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+            info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
+        else:
+            info = dict(st.secrets["gcp_service_account"])
+        creds = sa.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+        svc = build_service("sheets", "v4", credentials=creds)
+        svc.spreadsheets().values().update(
+            spreadsheetId=FILE_ID_2026_T3,
+            range=f"{SHEET_2026_T3}!I{row_num}",
+            valueInputOption="USER_ENTERED",
+            body={"values": [["Y"]]}
+        ).execute()
+
+    try:
+        unpaid_jobs = load_unpaid()
+    except Exception as e:
+        st.error(f"Error loading unpaid jobs: {str(e)}")
+        unpaid_jobs = []
+
+    if not unpaid_jobs:
+        st.markdown(f'<div style="background:#251C20;border:1px solid #3A2830;border-radius:14px;padding:2rem;text-align:center;margin-top:1rem;"><div style="font-size:2rem;margin-bottom:.5rem;">🎉</div><div style="color:#A5D6A7;font-family:Playfair Display,serif;font-size:1.1rem;">All caught up!</div><div style="color:#9E8580;font-size:.85rem;margin-top:.3rem;">No outstanding payments.</div></div>', unsafe_allow_html=True)
+    else:
+        count = len(unpaid_jobs)
+        st.markdown(f'<div style="color:#9E8580;font-size:.82rem;margin-bottom:1rem;">{count} outstanding payment{"s" if count != 1 else ""} — tap Paid to mark as collected</div>', unsafe_allow_html=True)
+        for job in unpaid_jobs:
+            col_a, col_b = st.columns([4, 1])
+            with col_a:
+                st.markdown(f'<div style="background:#251C20;border:1px solid #3A2830;border-radius:10px;padding:.8rem 1rem;margin-bottom:.5rem;"><div style="color:#F5EDE8;font-weight:500;">{job["name"]}</div><div style="color:#9E8580;font-size:.78rem;margin-top:.2rem;">{job["date"]}</div></div>', unsafe_allow_html=True)
+            with col_b:
+                if st.button("✅ Paid", key=f"paid_{job['row']}", use_container_width=True):
+                    try:
+                        mark_paid(job["row"])
+                        st.cache_data.clear()
+                        st.success(f"Marked {job['name']} as paid!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
