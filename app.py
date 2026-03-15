@@ -382,11 +382,9 @@ with tab2:
         with col6:
             worker = st.selectbox("Worker", options=["None", "Kristi", "Amber"])
         with col7:
-            worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0, value=20, step=5,
-                                          disabled=(worker == "None"))
+            worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0, value=20, step=5)
         with col8:
-            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=0.0, step=0.5,
-                                           disabled=(worker == "None"))
+            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=0.0, step=0.5)
 
         income       = hours * rate
         worker_total = (worker_rate * worker_hours) if worker != "None" else 0
