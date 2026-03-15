@@ -228,11 +228,11 @@ with tab1:
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="section-title">Monthly Revenue Breakdown</div>', unsafe_allow_html=True)
+    def cell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{fmt(v)}</td>"
+    def jcell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{v}</td>"
     rows_html = ""
     all_years = [2021, 2022, 2023, 2024, 2025, 2026]
     for i, month in enumerate(MONTHS):
-        def cell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{fmt(v)}</td>"
-        def jcell(v): return '<td class="zero">—</td>' if v == 0 else f"<td>{v}</td>"
         is_current = (i + 1 == current_month_num)
         row_class = ' class="current-month"' if is_current else ""
         marker = " ✦" if is_current else ""
