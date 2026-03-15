@@ -668,39 +668,39 @@ with tab4:
     st.markdown('<div class="section-title">Top Clients by Revenue — 2026</div>', unsafe_allow_html=True)
 
     @st.cache_data(ttl=300)
-    @st.cache_data(ttl=300)
-    def load_client_data():
+    # Build client data from already-loaded df_i
+    df_2026 = df_i[df_i.year == 2026].copy()
+    # We need raw job-level data - use load_all_data buf directly via drive
+    # Instead, build from monthly df using worker_tracy as proxy for net revenue per client
+    # Pull raw 2026 data fresh using existing drive service
+    try:
         import io
         from googleapiclient.http import MediaIoBaseDownload
-        import pandas as pd
-        svc = get_drive_service()
-        request = svc.files().export_media(
+        _svc = get_drive_service()
+        _req = _svc.files().export_media(
             fileId="1iVAghLUz1gIPFK-1Qq77YbdCW-9ILnb5TOANvv1t2G8",
             mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        buf = io.BytesIO()
-        dl = MediaIoBaseDownload(buf, request)
-        done = False
-        while not done:
-            _, done = dl.next_chunk()
-        buf.seek(0)
-        df_c = pd.read_excel(buf, sheet_name="2026 PTOT Tracking", header=0)
+        _buf = io.BytesIO()
+        _dl = MediaIoBaseDownload(_buf, _req)
+        _done = False
+        while not _done:
+            _, _done = _dl.next_chunk()
+        _buf.seek(0)
+        import pandas as _pd
+        df_raw = _pd.read_excel(_buf, sheet_name="2026 PTOT Tracking", header=0)
         clients = {}
         freq = {}
-        for _, row in df_c.iterrows():
-            name = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
-            if not name or name.startswith("Unnamed"):
+        for _, row in df_raw.iterrows():
+            name = str(row.iloc[0]).strip() if _pd.notna(row.iloc[0]) else ""
+            if not name or name.startswith("Unnamed") or name == "nan":
                 continue
             try:
-                rev = float(row.iloc[15]) if pd.notna(row.iloc[15]) else 0
+                rev = float(row.iloc[15]) if _pd.notna(row.iloc[15]) else 0
             except (ValueError, TypeError):
                 rev = 0
             clients[name] = clients.get(name, 0) + rev
             freq[name] = freq.get(name, 0) + 1
-        return clients, freq
-
-    try:
-        clients, freq = load_client_data()
 
         # Top clients by revenue
         top_clients = sorted(clients.items(), key=lambda x: x[1], reverse=True)[:8]
