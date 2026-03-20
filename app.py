@@ -86,7 +86,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab1, tab4, tab2, tab3 = st.tabs(["📊 Dashboard", "📈 Insights", "➕ Log a Job", "💰 Unpaid Jobs"])
+tab1, tab4, tab2, tab3, tab5 = st.tabs(["📊 Dashboard", "📈 Insights", "➕ Log a Job", "💰 Unpaid Jobs", "✏️ Edit Jobs"])
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — DASHBOARD
@@ -763,3 +763,221 @@ with tab4:
 
     except Exception as e:
         st.error(f"Error loading client data: {str(e)}")
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TAB 5 — EDIT LAST 5 JOBS
+# ════════════════════════════════════════════════════════════════════════════════
+with tab5:
+
+    st.markdown('<div class="section-title">Edit Recent Jobs</div>', unsafe_allow_html=True)
+
+    FILE_ID_2026_E = "1iVAghLUz1gIPFK-1Qq77YbdCW-9ILnb5TOANvv1t2G8"
+    SHEET_2026_E   = "2026 PTOT Tracking"
+
+    def load_recent_jobs():
+        import io, json, os
+        from googleapiclient.http import MediaIoBaseDownload
+        import pandas as pd
+        svc = get_drive_service()
+        request = svc.files().export_media(
+            fileId=FILE_ID_2026_E,
+            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        buf = io.BytesIO()
+        dl = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = dl.next_chunk()
+        buf.seek(0)
+        df_e = pd.read_excel(buf, sheet_name=SHEET_2026_E, header=0)
+        # Get rows with valid customer names only
+        job_rows = df_e[df_e.iloc[:, 0].notna() & 
+                        df_e.iloc[:, 0].astype(str).str.strip().ne('') &
+                        ~df_e.iloc[:, 0].astype(str).str.startswith('Unnamed')].copy()
+        job_rows['_sheet_row'] = job_rows.index + 2  # 1-indexed + header row
+        return job_rows.tail(5).reset_index(drop=True)
+
+    def save_job_edit(sheet_row, values):
+        import json, os
+        from googleapiclient.discovery import build as build_service
+        from google.oauth2 import service_account as sa
+        if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+            info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
+        else:
+            info = dict(st.secrets["gcp_service_account"])
+        creds = sa.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+        svc = build_service("sheets", "v4", credentials=creds)
+        svc.spreadsheets().values().update(
+            spreadsheetId=FILE_ID_2026_E,
+            range=f"{SHEET_2026_E}!A{sheet_row}:P{sheet_row}",
+            valueInputOption="USER_ENTERED",
+            body={"values": [values]}
+        ).execute()
+
+    def delete_job_row(sheet_row):
+        import json, os
+        from googleapiclient.discovery import build as build_service
+        from google.oauth2 import service_account as sa
+        if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+            info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
+        else:
+            info = dict(st.secrets["gcp_service_account"])
+        creds = sa.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+        svc = build_service("sheets", "v4", credentials=creds)
+        # Get spreadsheet ID for the sheet
+        spreadsheet = svc.spreadsheets().get(spreadsheetId=FILE_ID_2026_E).execute()
+        sheet_id = None
+        for s in spreadsheet["sheets"]:
+            if s["properties"]["title"] == SHEET_2026_E:
+                sheet_id = s["properties"]["sheetId"]
+                break
+        # Delete the row
+        svc.spreadsheets().batchUpdate(
+            spreadsheetId=FILE_ID_2026_E,
+            body={"requests": [{
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "ROWS",
+                        "startIndex": sheet_row - 1,  # 0-indexed
+                        "endIndex": sheet_row
+                    }
+                }
+            }]}
+        ).execute()
+
+    try:
+        recent_jobs = load_recent_jobs()
+    except Exception as e:
+        st.error(f"Error loading jobs: {str(e)}")
+        recent_jobs = None
+
+    if recent_jobs is not None:
+        st.markdown(f'<div style="color:#9E8580;font-size:.82rem;margin-bottom:1rem;">Showing last {len(recent_jobs)} job entries — expand a job to edit it</div>', unsafe_allow_html=True)
+
+        for idx, job in recent_jobs.iterrows():
+            sheet_row = int(job['_sheet_row'])
+            job_name = str(job.iloc[0]).strip()
+            job_date_raw = job.iloc[1]
+            try:
+                job_date_val = pd.to_datetime(job_date_raw).date()
+            except Exception:
+                job_date_val = date.today()
+
+            expander_label = f"{job_name} — {job_date_val.strftime('%B %d, %Y')}"
+
+            with st.expander(expander_label):
+                with st.form(f"edit_form_{sheet_row}", clear_on_submit=False):
+
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        e_name = st.text_input("Customer Name", value=job_name)
+                    with col_b:
+                        e_date = st.date_input("Date of Work", value=job_date_val)
+
+                    e_address = st.text_input("Customer Address", value=str(job.iloc[2]).strip() if pd.notna(job.iloc[2]) else "")
+                    e_desc    = st.text_input("Job Description",  value=str(job.iloc[3]).strip() if pd.notna(job.iloc[3]) else "")
+
+                    col_c, col_d, col_e = st.columns(3)
+                    with col_c:
+                        e_hours = st.number_input("Hours Worked", min_value=0.5, max_value=12.0,
+                            value=float(job.iloc[4]) if pd.notna(job.iloc[4]) else 4.0, step=0.5)
+                    with col_d:
+                        e_rate = st.number_input("Hourly Rate ($)", min_value=0,
+                            value=int(job.iloc[5]) if pd.notna(job.iloc[5]) else 65, step=5)
+                    with col_e:
+                        e_mileage = st.number_input("Travel Mileage", min_value=0,
+                            value=int(float(job.iloc[7])) if pd.notna(job.iloc[7]) else 0, step=1)
+
+                    st.markdown("**Helper (optional)**")
+                    col_f, col_g, col_h, col_i = st.columns(4)
+                    with col_f:
+                        current_worker = str(job.iloc[10]).strip() if pd.notna(job.iloc[10]) else "None"
+                        worker_options = ["None", "Kristi", "Amber"]
+                        worker_idx = worker_options.index(current_worker) if current_worker in worker_options else 0
+                        e_worker = st.selectbox("Worker", options=worker_options, index=worker_idx)
+                    with col_g:
+                        e_worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0,
+                            value=int(float(job.iloc[11])) if pd.notna(job.iloc[11]) and job.iloc[11] != '' else 0, step=5)
+                    with col_h:
+                        e_worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0,
+                            value=float(job.iloc[12]) if pd.notna(job.iloc[12]) and job.iloc[12] != '' else 0.0, step=0.5)
+                    with col_i:
+                        e_worker_paid = st.selectbox("Worker Paid?",
+                            options=["", "Y"],
+                            index=1 if str(job.iloc[14]).strip().upper() == "Y" else 0)
+
+                    # Recalculate
+                    e_income       = e_hours * e_rate
+                    e_worker_total = (e_worker_rate * e_worker_hours) if e_worker != "None" else 0
+                    e_net_revenue  = e_income - e_worker_total
+
+                    st.markdown(f"""
+                    <div style="background:#1C1518;border:1px solid #3A2830;border-radius:10px;padding:.8rem;margin:.5rem 0;">
+                      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;text-align:center;">
+                        <div><div style="color:#9E8580;font-size:.65rem;text-transform:uppercase;">Income</div>
+                          <div style="color:#F06292;font-size:1.1rem;">${e_income:,.0f}</div></div>
+                        <div><div style="color:#9E8580;font-size:.65rem;text-transform:uppercase;">Worker Pay</div>
+                          <div style="color:#FFB74D;font-size:1.1rem;">${e_worker_total:,.0f}</div></div>
+                        <div><div style="color:#9E8580;font-size:.65rem;text-transform:uppercase;">Net Revenue</div>
+                          <div style="color:#A5D6A7;font-size:1.1rem;">${e_net_revenue:,.0f}</div></div>
+                      </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    save_btn = st.form_submit_button("💾 Save Changes", use_container_width=True)
+
+                if save_btn:
+                    try:
+                        worker_val = e_worker if e_worker != "None" else ""
+                        updated_row = [
+                            e_name,
+                            e_date.strftime("%Y-%m-%d"),
+                            e_address,
+                            e_desc,
+                            float(e_hours),
+                            float(e_rate),
+                            float(e_income),
+                            float(e_mileage),
+                            str(job.iloc[8]) if pd.notna(job.iloc[8]) else "",  # $ Collected - preserve
+                            str(job.iloc[9]) if pd.notna(job.iloc[9]) else "",  # Referral - preserve
+                            worker_val,
+                            float(e_worker_rate) if e_worker != "None" else "",
+                            float(e_worker_hours) if e_worker != "None" else "",
+                            float(e_worker_total) if e_worker != "None" else 0,
+                            e_worker_paid,
+                            float(e_net_revenue),
+                        ]
+                        save_job_edit(sheet_row, updated_row)
+                        st.success(f"✅ {e_name} updated successfully!")
+                        st.cache_data.clear()
+                    except Exception as e:
+                        st.error(f"Error saving: {str(e)}")
+
+                # ── Delete button outside the form ────────────────────────────
+                st.markdown("---")
+                col_del1, col_del2 = st.columns([3, 1])
+                with col_del2:
+                    if st.button("🗑️ Delete Job", key=f"del_{sheet_row}", use_container_width=True):
+                        st.session_state[f"confirm_delete_{sheet_row}"] = True
+
+                if st.session_state.get(f"confirm_delete_{sheet_row}", False):
+                    st.warning(f"Are you sure you want to delete this job? This cannot be undone.")
+                    col_yes, col_no = st.columns(2)
+                    with col_yes:
+                        if st.button("Yes, delete it", key=f"yes_del_{sheet_row}", use_container_width=True):
+                            try:
+                                delete_job_row(sheet_row)
+                                st.session_state[f"confirm_delete_{sheet_row}"] = False
+                                st.cache_data.clear()
+                                st.success("Job deleted!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error deleting: {str(e)}")
+                    with col_no:
+                        if st.button("Cancel", key=f"no_del_{sheet_row}", use_container_width=True):
+                            st.session_state[f"confirm_delete_{sheet_row}"] = False
+                            st.rerun()
