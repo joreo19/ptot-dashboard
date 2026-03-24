@@ -353,41 +353,40 @@ with tab2:
     customer_name = st.text_input("Customer Name", value=default_name, placeholder="Type name for new customer")
     address       = st.text_input("Customer Address", value=default_address, placeholder="Street address")
 
+    col1, col2 = st.columns(2)
+    with col1:
+        job_date = st.date_input("Date of Work", value=date.today())
+    with col2:
+        description = st.text_input("Job Description", placeholder="e.g. bedroom closet, kitchen")
+
+    col3, col4, col5 = st.columns(3)
+    with col3:
+        hours = st.number_input("Hours Worked", min_value=0.5, max_value=12.0, value=4.0, step=0.5)
+    with col4:
+        rate = st.number_input("Hourly Rate ($)", min_value=0, value=65, step=5)
+    with col5:
+        mileage = st.number_input("Travel Mileage", min_value=0, value=default_mileage, step=1)
+
+    st.markdown("**Helper (optional)**")
+    col6, col7, col8 = st.columns(3)
+    with col6:
+        worker = st.selectbox("Worker", options=["None", "Kristi", "Amber"])
+    with col7:
+        worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0, value=20, step=5,
+                                      disabled=(worker == "None"))
+    with col8:
+        worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=4.0, step=0.5)
+
+    income       = hours * rate
+    worker_total = (worker_rate * worker_hours) if worker != "None" else 0
+    net_revenue  = income - worker_total
+
+    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1.metric("Income", f"${income:,.0f}")
+    col_m2.metric("Worker Pay", f"${worker_total:,.0f}")
+    col_m3.metric("Net Revenue", f"${net_revenue:,.0f}")
+
     with st.form("job_entry_form", clear_on_submit=True):
-
-        col1, col2 = st.columns(2)
-        with col1:
-            job_date = st.date_input("Date of Work", value=date.today())
-        with col2:
-            description = st.text_input("Job Description", placeholder="e.g. bedroom closet, kitchen")
-
-        col3, col4, col5 = st.columns(3)
-        with col3:
-            hours = st.number_input("Hours Worked", min_value=0.5, max_value=12.0, value=4.0, step=0.5)
-        with col4:
-            rate = st.number_input("Hourly Rate ($)", min_value=0, value=65, step=5)
-        with col5:
-            mileage = st.number_input("Travel Mileage", min_value=0, value=default_mileage, step=1)
-
-        st.markdown("**Helper (optional)**")
-        col6, col7, col8 = st.columns(3)
-        with col6:
-            worker = st.selectbox("Worker", options=["None", "Kristi", "Amber"])
-        with col7:
-            worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0, value=20, step=5,
-                                          disabled=(worker == "None"))
-        with col8:
-            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=4.0, step=0.5)
-
-        income       = hours * rate
-        worker_total = (worker_rate * worker_hours) if worker != "None" else 0
-        net_revenue  = income - worker_total
-
-        col_m1, col_m2, col_m3 = st.columns(3)
-        col_m1.metric("Income", f"${income:,.0f}")
-        col_m2.metric("Worker Pay", f"${worker_total:,.0f}")
-        col_m3.metric("Net Revenue", f"${net_revenue:,.0f}")
-
         submitted = st.form_submit_button("✅ Save Job to Spreadsheet", use_container_width=True)
 
     if submitted:
