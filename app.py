@@ -377,31 +377,16 @@ with tab2:
             worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0, value=20, step=5,
                                           disabled=(worker == "None"))
         with col8:
-            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=0.0, step=0.5,
-                                           disabled=(worker == "None"))
+            worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0, value=4.0, step=0.5)
 
         income       = hours * rate
         worker_total = (worker_rate * worker_hours) if worker != "None" else 0
         net_revenue  = income - worker_total
 
-        st.markdown(f"""
-        <div style="background:{BG_DARK};border:1px solid #3A2830;border-radius:12px;padding:1rem;margin:1rem 0;">
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;text-align:center;">
-            <div>
-              <div style="color:{TEXT_DIM};font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;">Income</div>
-              <div style="color:{COLOR_2026};font-size:1.3rem;font-family:'Playfair Display',serif;">${income:,.0f}</div>
-            </div>
-            <div>
-              <div style="color:{TEXT_DIM};font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;">Worker Pay</div>
-              <div style="color:{COLOR_2025};font-size:1.3rem;font-family:'Playfair Display',serif;">${worker_total:,.0f}</div>
-            </div>
-            <div>
-              <div style="color:{TEXT_DIM};font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;">Net Revenue</div>
-              <div style="color:#A5D6A7;font-size:1.3rem;font-family:'Playfair Display',serif;">${net_revenue:,.0f}</div>
-            </div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric("Income", f"${income:,.0f}")
+        col_m2.metric("Worker Pay", f"${worker_total:,.0f}")
+        col_m3.metric("Net Revenue", f"${net_revenue:,.0f}")
 
         submitted = st.form_submit_button("✅ Save Job to Spreadsheet", use_container_width=True)
 
