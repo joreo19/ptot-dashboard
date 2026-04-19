@@ -41,7 +41,7 @@ st.markdown(f"""
   .block-container {{ padding: 0 1.5rem 3rem; max-width: 900px; margin: auto; }}
   [data-testid="stVerticalBlock"] > [style*="flex-direction: column"] > [data-testid="stVerticalBlock"] {{ gap: 0 !important; }}
   div[data-testid="stTabs"] > div > div[role="tabpanel"] {{ padding-top: 0 !important; margin-top: 0 !important; }}
-  .dash-header {{ text-align: center; padding: 1rem 0 1rem; border-bottom: 1px solid #3A2830; margin-bottom: 1rem; }}
+  .dash-header {{ text-align: center; padding: 0.5rem 0 0.5rem; border-bottom: 1px solid #3A2830; margin-bottom: 0.5rem; }}
   .dash-header .tagline-top {{ font-family: 'Jost', sans-serif; font-size: .7rem; font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: {ACCENT}; margin-bottom: .6rem; }}
   .dash-header h1 {{ font-family: 'Playfair Display', serif; font-size: clamp(1.9rem, 5vw, 2.8rem); color: {TEXT_LIGHT}; margin: 0 0 .4rem; line-height: 1.15; }}
   .dash-header h1 em {{ color: {ACCENT}; font-style: italic; }}
@@ -78,7 +78,7 @@ st.markdown(f"""
   .stTabs [aria-selected="true"] {{ background-color: {ACCENT} !important; color: white !important; }}
   [data-testid="stAppViewContainer"] {{ padding-top: 0 !important; }}
   [data-testid="stHeader"] {{ display: none !important; }}
-  [data-testid="stMainBlockContainer"] {{ padding-top: 1rem !important; }}
+  [data-testid="stMainBlockContainer"] {{ padding-top: 0 !important; }}
   .main .block-container {{ padding-top: 0 !important; }}
   [data-testid="stTabPanel"] {{ padding-top: 0 !important; margin-top: 0 !important; }}
   [data-testid="stTabPanel"] > div {{ padding-top: 0 !important; margin-top: 0 !important; }}
