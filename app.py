@@ -39,7 +39,9 @@ st.markdown(f"""
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500&display=swap');
   html, body, [class*="css"] {{ font-family: 'Jost', sans-serif; background-color: {BG_DARK}; color: {TEXT_LIGHT}; }}
   .block-container {{ padding: 0 1.5rem 3rem; max-width: 900px; margin: auto; }}
-  .dash-header {{ text-align: center; padding: 1rem 0 1rem; border-bottom: 1px solid #3A2830; margin-bottom: 1rem; margin-top: 0; }}
+  [data-testid="stVerticalBlock"] > [style*="flex-direction: column"] > [data-testid="stVerticalBlock"] {{ gap: 0 !important; }}
+  div[data-testid="stTabs"] > div > div[role="tabpanel"] {{ padding-top: 0 !important; margin-top: 0 !important; }}
+  .dash-header {{ text-align: center; padding: 1rem 0 1rem; border-bottom: 1px solid #3A2830; margin-bottom: 1rem; }}
   .dash-header .tagline-top {{ font-family: 'Jost', sans-serif; font-size: .7rem; font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: {ACCENT}; margin-bottom: .6rem; }}
   .dash-header h1 {{ font-family: 'Playfair Display', serif; font-size: clamp(1.9rem, 5vw, 2.8rem); color: {TEXT_LIGHT}; margin: 0 0 .4rem; line-height: 1.15; }}
   .dash-header h1 em {{ color: {ACCENT}; font-style: italic; }}
