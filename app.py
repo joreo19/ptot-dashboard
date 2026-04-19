@@ -81,9 +81,18 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Header ─────────────────────────────────────────────────────────────────────
+st.markdown(f"""
+<div class="dash-header">
+  <div class="tagline-top">Business Performance Dashboard</div>
+  <h1>Purge This <em>Organize That</em></h1>
+  <div class="flourish">— ✦ —</div>
+  <p style="margin-top:.6rem">Year-over-Year Revenue · Updated {datetime.now().strftime("%B %d, %Y")}</p>
+</div>
+""", unsafe_allow_html=True)
+
 # ── Tabs ───────────────────────────────────────────────────────────────────────
 tab1, tab4, tab2, tab3, tab5 = st.tabs(["📊 Dashboard", "📈 Insights", "➕ Log a Job", "💰 Unpaid Jobs", "✏️ Edit Jobs"])
-st.markdown(f'<div class="dash-header"><div class="tagline-top">Business Performance Dashboard</div><h1>Purge This <em>Organize That</em></h1><div class="flourish">— ✦ —</div><p style="margin-top:.6rem">Year-over-Year Revenue · Updated {datetime.now().strftime("%B %d, %Y")}</p></div>', unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — DASHBOARD
