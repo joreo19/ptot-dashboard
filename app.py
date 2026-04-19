@@ -74,21 +74,16 @@ st.markdown(f"""
   .stTabs [data-baseweb="tab-list"] {{ gap: 8px; background-color: {BG_CARD}; border-radius: 12px; padding: 4px; }}
   .stTabs [data-baseweb="tab"] {{ background-color: transparent; color: {TEXT_DIM}; border-radius: 8px; padding: 8px 20px; font-family: 'Jost', sans-serif; font-size: .85rem; }}
   .stTabs [aria-selected="true"] {{ background-color: {ACCENT} !important; color: white !important; }}
+  [data-testid="stAppViewContainer"] {{ padding-top: 0 !important; }}
+  [data-testid="stHeader"] {{ display: none !important; }}
+  [data-testid="stMainBlockContainer"] {{ padding-top: 1rem !important; }}
+  .main .block-container {{ padding-top: 0 !important; }}
 </style>
-""", unsafe_allow_html=True)
-
-# ── Header ─────────────────────────────────────────────────────────────────────
-st.markdown(f"""
-<div class="dash-header">
-  <div class="tagline-top">Business Performance Dashboard</div>
-  <h1>Purge This <em>Organize That</em></h1>
-  <div class="flourish">— ✦ —</div>
-  <p style="margin-top:.6rem">Year-over-Year Revenue · Updated {datetime.now().strftime("%B %d, %Y")}</p>
-</div>
 """, unsafe_allow_html=True)
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
 tab1, tab4, tab2, tab3, tab5 = st.tabs(["📊 Dashboard", "📈 Insights", "➕ Log a Job", "💰 Unpaid Jobs", "✏️ Edit Jobs"])
+st.markdown(f'<div class="dash-header"><div class="tagline-top">Business Performance Dashboard</div><h1>Purge This <em>Organize That</em></h1><div class="flourish">— ✦ —</div><p style="margin-top:.6rem">Year-over-Year Revenue · Updated {datetime.now().strftime("%B %d, %Y")}</p></div>', unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — DASHBOARD
