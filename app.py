@@ -38,8 +38,8 @@ st.markdown(f"""
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500&display=swap');
   html, body, [class*="css"] {{ font-family: 'Jost', sans-serif; background-color: {BG_DARK}; color: {TEXT_LIGHT}; }}
-  .block-container {{ padding: 1.5rem 1.5rem 3rem; max-width: 900px; margin: auto; }}
-  .dash-header {{ text-align: center; padding: 2.2rem 0 1.8rem; border-bottom: 1px solid #3A2830; margin-bottom: 1.8rem; }}
+  .block-container {{ padding: 0rem 1.5rem 3rem; max-width: 900px; margin: auto; }}
+  .dash-header {{ text-align: center; padding: 1rem 0 1.2rem; border-bottom: 1px solid #3A2830; margin-bottom: 1.8rem; margin-top: 0; }}
   .dash-header .tagline-top {{ font-family: 'Jost', sans-serif; font-size: .7rem; font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: {ACCENT}; margin-bottom: .6rem; }}
   .dash-header h1 {{ font-family: 'Playfair Display', serif; font-size: clamp(1.9rem, 5vw, 2.8rem); color: {TEXT_LIGHT}; margin: 0 0 .4rem; line-height: 1.15; }}
   .dash-header h1 em {{ color: {ACCENT}; font-style: italic; }}
@@ -69,6 +69,7 @@ st.markdown(f"""
   div[data-testid="stToolbar"] {{ display: none; }}
   footer {{ display: none; }}
   .stSpinner > div {{ border-top-color: {ACCENT} !important; }}
+  .stTabs {{ margin-top: 0 !important; padding-top: 0 !important; }}
   .stTabs [data-baseweb="tab-list"] {{ gap: 8px; background-color: {BG_CARD}; border-radius: 12px; padding: 4px; }}
   .stTabs [data-baseweb="tab"] {{ background-color: transparent; color: {TEXT_DIM}; border-radius: 8px; padding: 8px 20px; font-family: 'Jost', sans-serif; font-size: .85rem; }}
   .stTabs [aria-selected="true"] {{ background-color: {ACCENT} !important; color: white !important; }}
