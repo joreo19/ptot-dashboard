@@ -78,8 +78,26 @@ st.markdown(f"""
   [data-testid="stHeader"] {{ display: none !important; }}
   [data-testid="stMainBlockContainer"] {{ padding-top: 1rem !important; }}
   .main .block-container {{ padding-top: 0 !important; }}
+  [data-testid="stTabPanel"] {{ padding-top: 0 !important; margin-top: 0 !important; }}
+  [data-testid="stTabPanel"] > div {{ padding-top: 0 !important; margin-top: 0 !important; }}
 </style>
 """, unsafe_allow_html=True)
+
+# Scroll to top on tab switch so the header stays visible on mobile
+st.markdown("""<script>
+(function() {
+  if (window._ptotScrollHandler) {
+    document.removeEventListener('click', window._ptotScrollHandler, true);
+  }
+  window._ptotScrollHandler = function(e) {
+    if (e.target.closest('[data-baseweb="tab"]')) {
+      window.scrollTo(0, 0);
+      setTimeout(function() { window.scrollTo(0, 0); }, 200);
+    }
+  };
+  document.addEventListener('click', window._ptotScrollHandler, true);
+})();
+</script>""", unsafe_allow_html=True)
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.markdown(f"""
