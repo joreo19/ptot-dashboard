@@ -894,13 +894,13 @@ with tab5:
                     col_c, col_d, col_e = st.columns(3)
                     with col_c:
                         e_hours = st.number_input("Hours Worked", min_value=0.5, max_value=12.0,
-                            value=float(job.iloc[4]) if pd.notna(job.iloc[4]) else 4.0, step=0.5)
+                            value=float(job.iloc[4]) if pd.notna(job.iloc[4]) and job.iloc[4] != '' else 4.0, step=0.5)
                     with col_d:
                         e_rate = st.number_input("Hourly Rate ($)", min_value=0,
-                            value=int(job.iloc[5]) if pd.notna(job.iloc[5]) else 65, step=5)
+                            value=int(job.iloc[5]) if pd.notna(job.iloc[5]) and job.iloc[5] != '' else 65, step=5)
                     with col_e:
                         e_mileage = st.number_input("Travel Mileage", min_value=0,
-                            value=int(float(job.iloc[7])) if pd.notna(job.iloc[7]) else 0, step=1)
+                            value=int(float(job.iloc[7])) if pd.notna(job.iloc[7]) and job.iloc[7] != '' else 0, step=1)
 
                     st.markdown("**Helper (optional)**")
                     col_f, col_g, col_h, col_i = st.columns(4)
