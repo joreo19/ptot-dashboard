@@ -4,6 +4,16 @@ import plotly.graph_objects as go
 from datetime import datetime, date
 from data_loader import load_all_data, build_monthly_df, MONTHS, WORKER_COLS, get_drive_service
 
+
+def safe_num(v, default=0.0):
+    """Convert a sheet cell to float, falling back on blank/whitespace/bad values."""
+    try:
+        if pd.isna(v):
+            return default
+        return float(str(v).replace("$", "").replace(",", "").strip())
+    except (ValueError, TypeError):
+        return default
+
 st.set_page_config(
     page_title="Purge This Organize That",
     page_icon="🌸",
@@ -894,13 +904,13 @@ with tab5:
                     col_c, col_d, col_e = st.columns(3)
                     with col_c:
                         e_hours = st.number_input("Hours Worked", min_value=0.5, max_value=12.0,
-                            value=float(job.iloc[4]) if pd.notna(job.iloc[4]) and job.iloc[4] != '' else 4.0, step=0.5)
+                            value=min(max(safe_num(job.iloc[4], 4.0), 0.5), 12.0), step=0.5)
                     with col_d:
                         e_rate = st.number_input("Hourly Rate ($)", min_value=0,
-                            value=int(job.iloc[5]) if pd.notna(job.iloc[5]) and job.iloc[5] != '' else 65, step=5)
+                            value=int(safe_num(job.iloc[5], 65)), step=5)
                     with col_e:
                         e_mileage = st.number_input("Travel Mileage", min_value=0,
-                            value=int(float(job.iloc[7])) if pd.notna(job.iloc[7]) and job.iloc[7] != '' else 0, step=1)
+                            value=max(int(safe_num(job.iloc[7])), 0), step=1)
 
                     st.markdown("**Helper (optional)**")
                     col_f, col_g, col_h, col_i = st.columns(4)
@@ -911,10 +921,10 @@ with tab5:
                         e_worker = st.selectbox("Worker", options=worker_options, index=worker_idx)
                     with col_g:
                         e_worker_rate = st.number_input("Worker Rate ($/hr)", min_value=0,
-                            value=int(float(job.iloc[11])) if pd.notna(job.iloc[11]) and job.iloc[11] != '' else 0, step=5)
+                            value=max(int(safe_num(job.iloc[11])), 0), step=5)
                     with col_h:
                         e_worker_hours = st.number_input("Worker Hours", min_value=0.0, max_value=12.0,
-                            value=float(job.iloc[12]) if pd.notna(job.iloc[12]) and job.iloc[12] != '' else 0.0, step=0.5)
+                            value=min(max(safe_num(job.iloc[12]), 0.0), 12.0), step=0.5)
                     with col_i:
                         e_worker_paid = st.selectbox("Worker Paid?",
                             options=["", "Y"],
