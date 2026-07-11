@@ -5,6 +5,13 @@ from datetime import datetime, date
 from data_loader import load_all_data, build_monthly_df, MONTHS, WORKER_COLS, get_drive_service
 
 
+import time as _time
+_t0 = _time.time()
+def _dbg(msg):
+    print(f"[PTOT +{_time.time()-_t0:6.1f}s] {msg}", flush=True)
+_dbg("script run started")
+
+
 def safe_num(v, default=0.0):
     """Convert a sheet cell to float, falling back on blank/whitespace/bad values."""
     try:
@@ -133,8 +140,10 @@ with tab1:
         raw = load_all_data()
         return build_monthly_df(raw)
 
+    _dbg("tab1: loading data")
     with st.spinner("Loading your data…"):
         df = get_data()
+    _dbg("tab1: data loaded")
 
     now = datetime.now()
     current_month_num = now.month
@@ -354,9 +363,12 @@ with tab2:
                     customers[name]["mileage"] = mil
         return customers
 
+    _dbg("tab2: loading customers")
     try:
         customers = load_customers()
-    except Exception:
+        _dbg(f"tab2: customers loaded ({len(customers)})")
+    except Exception as _e:
+        _dbg(f"tab2: load_customers FAILED: {_e}")
         customers = {}
 
     # Initialize session state
@@ -557,8 +569,10 @@ with tab3:
             body={"values": [["Y"]]}
         ).execute()
 
+    _dbg("tab3: loading unpaid")
     try:
         unpaid_jobs = load_unpaid()
+        _dbg(f"tab3: unpaid loaded ({len(unpaid_jobs)})")
     except Exception as e:
         st.error(f"Error loading unpaid jobs: {str(e)}")
         unpaid_jobs = []
@@ -593,7 +607,9 @@ with tab4:
         raw = load_all_data()
         return build_monthly_df(raw)
 
+    _dbg("tab4: loading insight data")
     df_i = get_insight_data()
+    _dbg("tab4: insight data loaded")
     now_i = datetime.now()
     cur_month_i = now_i.month
 
@@ -687,6 +703,7 @@ with tab4:
     # ── 4. Top Clients 2026 ───────────────────────────────────────────────────
     st.markdown('<div class="section-title">Top Clients by Revenue — 2026</div>', unsafe_allow_html=True)
 
+    _dbg("tab4: downloading 2026 excel for top clients")
     try:
         import io
         from googleapiclient.http import MediaIoBaseDownload
@@ -869,9 +886,12 @@ with tab5:
             }]}
         ).execute()
 
+    _dbg("tab5: loading recent jobs")
     try:
         recent_jobs = load_recent_jobs()
+        _dbg(f"tab5: recent jobs loaded ({len(recent_jobs)})")
     except Exception as e:
+        _dbg(f"tab5: load_recent_jobs FAILED: {e}")
         st.error(f"Error loading jobs: {str(e)}")
         recent_jobs = None
 
@@ -1001,3 +1021,5 @@ with tab5:
                         if st.button("Cancel", key=f"no_del_{sheet_row}", use_container_width=True):
                             st.session_state[f"confirm_delete_{sheet_row}"] = False
                             st.rerun()
+
+_dbg("script run finished")
